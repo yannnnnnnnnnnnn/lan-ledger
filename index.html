@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>個人記帳本</title>
+  <style>
+    :root{--ink:#28332d;--muted:#778078;--green:#456b50;--cream:#f7f5ee;--line:#e5e7df;--white:#fff;--red:#b55345;--shadow:0 8px 26px #28332d0c}
+    *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font:15px/1.55 "Segoe UI","Microsoft JhengHei",sans-serif}
+    header{background:var(--green);color:white;padding:25px max(22px,calc((100% - 1120px)/2)) 23px}
+    header h1{margin:0;font-size:25px;letter-spacing:.04em}header p{margin:4px 0 0;color:#e3eade;font-size:13px}
+    main{max-width:1120px;margin:24px auto;padding:0 20px 50px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+    .month{border:1px solid var(--line);background:white;border-radius:9px;padding:9px 12px;font:inherit;color:var(--ink)}
+    button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:10px 14px;background:var(--green);color:#fff;font-weight:600}
+    button.secondary{background:#edf1e9;color:var(--green)}button.danger{background:#fff0ed;color:var(--red);padding:6px 9px}
+    .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.card,.panel{background:var(--white);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+    .card{padding:16px 18px}.card span{display:block;color:var(--muted);font-size:13px}.card strong{font-size:22px;display:block;margin-top:4px}.card small{color:var(--muted)}
+    .panel{padding:18px;margin-bottom:16px}.panel h2{font-size:17px;margin:0 0 14px}.forms{display:grid;grid-template-columns:1.2fr 1fr 1.25fr 1fr 1.5fr auto;gap:10px;align-items:end}
+    label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}input,select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:#fff;font:inherit;color:var(--ink)}
+    .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.panel-head h2{margin:0}
+    .filters{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0 16px}.tabs{display:flex;gap:8px;margin:0 0 12px}.tabs button.active{background:var(--green);color:white}.tabs button:not(.active){background:#edf1e9;color:var(--green)}.hidden{display:none}
+    .table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;white-space:nowrap}th,td{text-align:left;border-bottom:1px solid var(--line);padding:10px 8px}th{font-size:12px;color:var(--muted);font-weight:600}td.amount{text-align:right;font-variant-numeric:tabular-nums}.income{color:var(--green)}.expense{color:var(--red)}.empty{text-align:center;color:var(--muted);padding:25px}
+    .hint{font-size:12px;color:var(--muted);margin:12px 0 0}.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#28332d;color:white;padding:10px 16px;border-radius:8px;display:none;box-shadow:var(--shadow)}
+    @media(max-width:800px){.cards{grid-template-columns:repeat(2,1fr)}.forms{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:480px){main{padding:0 12px 35px}.cards{gap:8px}.card{padding:12px}.card strong{font-size:18px}.panel{padding:13px}.forms{grid-template-columns:1fr 1fr}.forms button{grid-column:span 2}}
+    /* ===== 行動裝置防跑版修正 ===== */
+    html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+    body{overflow-x:hidden;padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+    .forms>*,.filters>*,.toolbar>*,.cards>*{min-width:0}
+    input,select{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;height:42px;margin:0;font-size:16px;line-height:1.3}
+    input[type=date],input[type=month]{display:flex;align-items:center;justify-content:center;text-align:center;padding:0 10px;line-height:40px}
+    input[type=date]::-webkit-date-and-time-value,input[type=month]::-webkit-date-and-time-value{text-align:center;margin:0 auto;width:100%;line-height:40px}
+    input[type=date]::-webkit-datetime-edit,input[type=month]::-webkit-datetime-edit{padding:0;text-align:center;line-height:40px}
+    select{padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23778078' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+    .month{width:auto;min-width:160px}
+    .forms label,.filters label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .forms button{height:42px}
+    .tabs{flex-wrap:wrap}
+    @media(max-width:480px){
+      header{padding:20px 14px 18px}header h1{font-size:22px}
+      .toolbar>div{flex:1 1 100%}.month{width:100%}.toolbar button{width:100%}
+      .tabs button{flex:1 1 auto}.tabs #exportFiltered{flex-basis:100%}
+      th,td{padding:9px 6px;font-size:14px}
+    }
+    @media(max-width:360px){
+      .forms,.filters{grid-template-columns:1fr}
+      .forms button{grid-column:auto}
+    }
+    /* ===== 分類管理 ===== */
+    .cat-group{margin-top:14px}.cat-group h3{font-size:14px;margin:0 0 8px;color:var(--muted)}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{display:inline-flex;align-items:center;gap:4px;background:#edf1e9;border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;font-size:14px}
+    .chip.system{background:#f3f3f0;color:var(--muted);padding-right:12px}
+    .chip button{background:none;color:var(--muted);padding:0 6px;height:24px;min-width:24px;font-size:14px;line-height:1}
+    .chip button:hover{color:var(--red)}
+    /* ===== 雲端同步 / 登入 ===== */
+    [hidden]{display:none!important}
+    header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .sync{display:flex;align-items:center;gap:8px;font-size:13px}
+    .sync-status{background:#ffffff1f;border-radius:999px;padding:5px 11px;color:#e3eade;white-space:nowrap}
+    .sync-status::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#cfd8cb;margin-right:6px;vertical-align:1px}
+    .sync-status[data-state=ok]::before{background:#9fe0a8}.sync-status[data-state=busy]::before{background:#f2d47c}.sync-status[data-state=error]::before{background:#ff9d8f}
+    .sync button{background:#ffffff26;color:#fff;padding:6px 11px;font-size:13px}
+    .auth{position:fixed;inset:0;z-index:100;background:var(--cream);display:flex;align-items:center;justify-content:center;padding:max(20px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));overflow:auto}
+    .auth-card{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;display:grid;gap:6px}
+    .auth-card h2{margin:0;font-size:19px}.auth-card p{margin:0 0 8px;color:var(--muted);font-size:13px}
+    .auth-card label{margin:6px 0 0}.auth-card button{height:44px;margin-top:6px}
+    .auth-card .auth-msg{min-height:1.4em;margin:4px 0 0;color:var(--red)}.auth-card .auth-msg.ok{color:var(--green)}
+    .backup-actions{display:flex;gap:8px;flex-wrap:wrap}
+    @media(max-width:480px){.toolbar .backup-actions button{width:auto;flex:1 1 0}}
+    .auth-links{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
+    .auth-card .link{background:none;color:var(--green);padding:4px 0;height:auto;margin:0;font-weight:600;font-size:14px}
+    .loading{position:fixed;inset:0;z-index:90;background:var(--cream);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+<header><div><h1>個人記帳本</h1><p>每日收支・分類統計，一目了然</p></div>
+  <div class="sync"><span class="sync-status" id="syncStatus" data-state="busy">連線中…</span><button type="button" id="logoutBtn" hidden>登出</button></div></header>
+<div class="loading" id="loadingScreen">資料載入中…</div>
+<div class="auth" id="authOverlay" hidden>
+  <form class="auth-card" id="authForm">
+    <h2>個人記帳本</h2>
+    <p>請輸入你的記帳本密碼。輸入一次後，這台裝置會記住。</p>
+    <label for="authPassword">密碼</label><input id="authPassword" type="password" autocomplete="current-password" required>
+    <button type="submit" id="authSubmit">進入記帳本</button>
+    <p class="auth-msg" id="authMsg" role="alert"></p>
+  </form>
+</div>
+<main>
+  <div class="toolbar"><div><label for="month">月報月份</label><input class="month" id="month" type="month"></div><div class="backup-actions"><button type="button" class="secondary" id="exportBackup">下載完整備份</button><button type="button" class="secondary" id="importBackup">匯入備份</button><input type="file" id="importFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden></div></div>
+  <section class="cards">
+    <div class="card"><span>本月收入</span><strong id="incomeTotal">$0</strong></div>
+    <div class="card"><span>本月支出</span><strong id="expenseTotal">$0</strong></div>
+    <div class="card"><span>本月結餘</span><strong id="balance">$0</strong></div>
+    <div class="card"><span>累積總結餘</span><strong id="allTimeBalance">$0</strong><small>全部已記帳收入－支出</small></div>
+  </section>
+  <section class="panel">
+    <h2>新增收支</h2>
+    <form class="forms" id="entryForm">
+      <div><label for="date">日期</label><input id="date" type="date" required></div>
+      <div><label for="type">類型</label><select id="type"><option value="expense">支出</option><option value="income">收入</option></select></div>
+      <div><label for="category">分類</label><select id="category"></select></div>
+      <div><label for="amount">金額（元）</label><input id="amount" type="number" min="0.01" step="0.01" required placeholder="0"></div>
+      <div><label id="noteLabel" for="note">備註</label><input id="note" maxlength="100" placeholder="選填"></div>
+      <button type="submit">新增</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>分類管理</h2>
+    <form class="forms" id="categoryForm">
+      <div><label for="newCategoryType">類型</label><select id="newCategoryType"><option value="expense">支出</option><option value="income">收入</option></select></div>
+      <div><label for="newCategoryName">新分類名稱</label><input id="newCategoryName" maxlength="20" placeholder="例如：房貸" required></div>
+      <button type="submit">新增分類</button>
+    </form>
+    <div class="cat-group"><h3>收入分類</h3><div class="chips" id="incomeCategoryList"></div></div>
+    <div class="cat-group"><h3>支出分類</h3><div class="chips" id="expenseCategoryList"></div></div>
+    <p class="hint">點分類旁的 ✕ 可移除；已記錄的明細不受影響。灰色的「其他」為系統保留，不能移除。也可以直接在 Google 試算表的「設定」分頁修改（用頓號「、」分隔）。</p>
+  </section>
+  <section class="panel">
+    <h2>記帳資料與分類統計</h2>
+    <div class="filters">
+      <div><label for="filterFrom">開始日期</label><input id="filterFrom" type="date"></div>
+      <div><label for="filterTo">結束日期</label><input id="filterTo" type="date"></div>
+      <div><label for="filterType">收支類型</label><select id="filterType"><option value="">全部</option><option value="income">收入</option><option value="expense">支出</option></select></div>
+      <div><label for="filterCategory">分類</label><select id="filterCategory"><option value="">全部分類</option></select></div>
+    </div>
+    <div class="tabs"><button type="button" class="active" data-tab="detailTab">收支明細</button><button type="button" data-tab="statsTab">分類統計</button><button type="button" class="secondary" id="exportFiltered">匯出篩選結果 CSV</button></div>
+    <div id="detailTab"><div class="panel-head"><h2>收支明細</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>日期</th><th>類型</th><th>分類</th><th>備註</th><th style="text-align:right">金額</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    </div>
+    <div id="statsTab" class="hidden"><div class="panel-head"><h2>各分類收入／支出統計</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">收入總額</th><th style="text-align:right">支出總額</th><th style="text-align:right">分類結餘</th></tr></thead><tbody id="statsRows"></tbody></table></div>
+    </div>
+  </section>
+</main><div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script>
+/* ===== Google 試算表設定：貼上 Apps Script「網頁應用程式」的部署網址 ===== */
+/* 留空 = 資料只存在這台裝置；貼上新試算表的網址（結尾是 /exec）後才會開始同步 */
+const SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbypFbbS-2Xfbnr5P6VRR6xb16-uBEM4ZySi9hG-LKNQ8b-lMu-OoF-IkH6s16SkY2p0Pg/exec";
+
+/* ===== 雲端同步模組（Google 試算表） ===== */
+window.Cloud = (() => {
+  const K = { rec: "personal-ledger-records", set: "personal-ledger-settings", synced: "personal-ledger-synced", setSynced: "personal-ledger-settings-synced", owner: "personal-ledger-owner", pass: "personal-ledger-passcode" };
+  const $ = id => document.getElementById(id);
+  const canon = v => Array.isArray(v) ? "[" + v.map(canon).join(",") + "]"
+    : v && typeof v === "object" ? "{" + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ":" + canon(v[k])).join(",") + "}"
+    : JSON.stringify(v);
+  const readJSON = (k, f) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } };
+  const writeJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { console.error(e); } };
+  const configured = /^https?:\/\//.test(SHEETS_API_URL);
+  let passcode = null, connected = false, listener = null, synced = {}, settingsSynced = null, chain = Promise.resolve(), timer = null, version = null;
+
+  function setStatus(text, state) { const el = $("syncStatus"); if (el) { el.textContent = text; el.dataset.state = state || ""; } }
+  const offlineText = () => navigator.onLine ? "同步失敗，稍後重試" : "離線中，連線後同步";
+
+  async function api(action, extra) {
+    const res = await fetch(SHEETS_API_URL, { method: "POST", body: JSON.stringify(Object.assign({ action, passcode }, extra || {})) });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (!data.ok) { const err = new Error(data.error || "error"); err.code = data.error; throw err; }
+    return data;
+  }
+
+  function showPasscode(text) {
+    return new Promise(resolve => {
+      $("loadingScreen").hidden = true;
+      $("authOverlay").hidden = false;
+      $("authMsg").textContent = text || "";
+      $("authPassword").value = "";
+      $("authForm").onsubmit = async e => {
+        e.preventDefault();
+        const value = $("authPassword").value.trim();
+        if (!value) return;
+        const btn = $("authSubmit"); btn.disabled = true;
+        $("authMsg").textContent = "確認中…";
+        passcode = value;
+        try {
+          const data = await api("version");
+          $("authOverlay").hidden = true; $("loadingScreen").hidden = false;
+          resolve(data);
+        } catch (err) {
+          $("authMsg").textContent = err.code === "wrong_passcode" ? "密碼錯誤，請再試一次" : err.code === "passcode_not_set" ? "試算表程式還沒設定密碼（請修改 Code.gs 的 PASSCODE）" : "無法連線，請確認網路後再試";
+        } finally { btn.disabled = false; }
+      };
+    });
+  }
+
+  async function pull() {
+    const data = await api("load");
+    const records = data.records || [];
+    synced = {}; records.forEach(r => synced[r.id] = canon(r));
+    writeJSON(K.synced, synced); writeJSON(K.rec, records);
+    if (data.settings) { writeJSON(K.set, data.settings); settingsSynced = canon(data.settings); localStorage.setItem(K.setSynced, settingsSynced); }
+    version = data.version;
+    return { records, settings: data.settings };
+  }
+
+  // 只送出有變動的資料（新增／修改／刪除）
+  function pushNow() {
+    chain = chain.catch(() => {}).then(async () => {
+      if (!connected) return;
+      const records = readJSON(K.rec, []), settings = readJSON(K.set, null);
+      const current = {}; records.forEach(r => current[r.id] = canon(r));
+      const upserts = records.filter(r => synced[r.id] !== current[r.id]);
+      const deletes = Object.keys(synced).filter(id => !(id in current));
+      const settingsChanged = settings && canon(settings) !== settingsSynced;
+      if (!upserts.length && !deletes.length && !settingsChanged) return;
+      const data = await api("sync", { upserts, deletes, settings: settingsChanged ? settings : undefined });
+      upserts.forEach(r => synced[r.id] = current[r.id]);
+      deletes.forEach(id => delete synced[id]);
+      writeJSON(K.synced, synced);
+      if (settingsChanged) { settingsSynced = canon(settings); localStorage.setItem(K.setSynced, settingsSynced); }
+      const othersChanged = version !== null && data.version !== version + 1;
+      version = data.version;
+      if (othersChanged) setTimeout(refresh, 0);
+    });
+    return chain;
+  }
+
+  function schedule() {
+    if (!connected) return;
+    clearTimeout(timer);
+    setStatus("同步中…", "busy");
+    timer = setTimeout(async () => {
+      try { await pushNow(); setStatus("已同步", "ok"); }
+      catch (e) { console.error(e); setStatus(offlineText(), "error"); }
+    }, 600);
+  }
+
+  let refreshing = false;
+  async function refresh() {
+    if (!connected || refreshing) return;
+    refreshing = true;
+    try { await pushNow(); const d = await pull(); listener && listener({ full: d }); setStatus("已同步", "ok"); }
+    catch (e) { console.error(e); setStatus(offlineText(), "error"); }
+    finally { refreshing = false; }
+  }
+
+  async function checkForUpdates() {
+    if (!connected || document.visibilityState !== "visible" || !navigator.onLine) return;
+    try { const d = await api("version"); if (d.version !== version) refresh(); }
+    catch (e) { console.error(e); }
+  }
+
+  async function ready() {
+    try {
+      if (!configured) { setStatus("僅存本機（尚未連結試算表）", ""); return; }
+      if (localStorage.getItem(K.owner) !== SHEETS_API_URL) {
+        [K.rec, K.set, K.synced, K.setSynced, K.pass].forEach(k => localStorage.removeItem(k));
+      }
+      passcode = localStorage.getItem(K.pass);
+      if (passcode) {
+        try { await api("version"); }
+        catch (err) {
+          if (err.code === "wrong_passcode") passcode = null;
+          else if (err.code === "passcode_not_set") { setStatus("試算表程式尚未設定密碼", "error"); return; }
+          else { setStatus(offlineText(), "error"); connected = true; startWatching(); return; } // 離線：先用本機資料
+        }
+      }
+      if (!passcode) await showPasscode(localStorage.getItem(K.pass) ? "密碼已變更，請重新輸入" : "");
+      localStorage.setItem(K.pass, passcode);
+      localStorage.setItem(K.owner, SHEETS_API_URL);
+      synced = readJSON(K.synced, {}); settingsSynced = localStorage.getItem(K.setSynced);
+      connected = true;
+      $("logoutBtn").hidden = false;
+      setStatus("同步中…", "busy");
+      try { await pushNow(); await pull(); setStatus("已同步", "ok"); }
+      catch (e) { console.error(e); setStatus(offlineText(), "error"); }
+      startWatching();
+    } catch (e) {
+      console.error(e); setStatus("連線錯誤，暫存本機", "error");
+    } finally {
+      $("loadingScreen").hidden = true;
+    }
+  }
+
+  function startWatching() {
+    $("logoutBtn").hidden = false;
+    setInterval(checkForUpdates, 30000);
+    window.addEventListener("online", refresh);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkForUpdates(); });
+    $("logoutBtn").onclick = async () => {
+      if (!confirm("確定要登出？試算表裡的資料會保留，這台裝置的暫存會清除。")) return;
+      setStatus("同步中…", "busy");
+      try { await pushNow(); setStatus("已同步", "ok"); }
+      catch (e) {
+        console.error(e); setStatus(offlineText(), "error");
+        alert("還有資料沒有存進試算表，為了避免資料遺失，現在不能登出。\n\n請確認網路連線，等右上角顯示「已同步」後再登出。");
+        return;
+      }
+      [K.rec, K.set, K.synced, K.setSynced, K.owner, K.pass].forEach(k => localStorage.removeItem(k));
+      location.reload();
+    };
+  }
+
+  return { ready, push: schedule, onChange: fn => listener = fn };
+})();
+</script>
+<script>
+(async () => {
+  const REC_KEY = "personal-ledger-records", SET_KEY = "personal-ledger-settings";
+  const SYSTEM_CATEGORIES = { income: ["其他"], expense: ["其他"] };
+  const DEFAULT_CATEGORIES = { income: ["薪資", "獎金", "投資", "利息", "其他"], expense: ["餐飲", "交通", "日用品", "購物", "娛樂", "醫療", "通訊", "保險", "其他"] };
+  const $ = id => document.getElementById(id);
+  const today = new Date();
+  const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  $("date").value = localDate;
+  $("month").value = localDate.slice(0, 7);
+  await Cloud.ready();
+  const load = (key, fallback) => {
+    try { const value = localStorage.getItem(key); return value ? JSON.parse(value) : fallback; }
+    catch (error) { console.error("讀取記帳資料失敗", error); return fallback; }
+  };
+  const cleanRecords = list => (Array.isArray(list) ? list : [])
+    .filter(r => r && r.id && typeof r.date === "string" && (r.type === "income" || r.type === "expense"))
+    .map(r => ({ id: String(r.id), date: r.date, type: r.type, category: String(r.category || "其他"), amount: Number(r.amount) || 0, note: String(r.note || ""), created: Number(r.created) || 0 }));
+  const normalizeSettings = s => {
+    const cats = s && typeof s === "object" && s.categories && typeof s.categories === "object" ? s.categories : {};
+    const out = { categories: {} };
+    ["income", "expense"].forEach(t => {
+      const list = Array.isArray(cats[t]) && cats[t].length ? cats[t] : DEFAULT_CATEGORIES[t];
+      out.categories[t] = [...new Set([...list.map(c => String(c).trim()).filter(Boolean), ...SYSTEM_CATEGORIES[t]])];
+    });
+    return out;
+  };
+  let records = cleanRecords(load(REC_KEY, []));
+  let settings = normalizeSettings(load(SET_KEY, null));
+  const store = () => {
+    localStorage.setItem(REC_KEY, JSON.stringify(records));
+    localStorage.setItem(SET_KEY, JSON.stringify(settings));
+  };
+  const save = () => {
+    try { store(); }
+    catch (error) { alert("儲存失敗，請確認瀏覽器儲存空間是否足夠。"); throw error; }
+    Cloud.push();
+  };
+  // 其他裝置（或直接在試算表）的變更同步進來
+  Cloud.onChange(change => {
+    if (change.full) {
+      records = cleanRecords(change.full.records);
+      if (change.full.settings) settings = normalizeSettings(change.full.settings);
+    }
+    try { store(); } catch (error) { console.error(error); }
+    refreshCategories(); render();
+  });
+  const money = n => "$" + Number(n).toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const sumByType = list => list.reduce((t, r) => { t[r.type] += Number(r.amount) || 0; return t; }, { income: 0, expense: 0 });
+  function showToast(text) { const el = $("toast"); el.textContent = text; el.style.display = "block"; setTimeout(() => el.style.display = "none", 2600); }
+  function updateCategories() {
+    const current = $("category").value;
+    const categories = settings.categories[$("type").value];
+    $("category").innerHTML = categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("") + '<option value="__new__">＋ 新增分類…</option>';
+    if (categories.includes(current)) $("category").value = current;
+    updateNoteRequirement();
+  }
+  function updateNoteRequirement() {
+    const required = $("category").value === "其他";
+    $("note").required = required;
+    $("note").placeholder = required ? "請填寫內容" : "選填";
+    $("noteLabel").textContent = required ? "備註（必填）" : "備註";
+  }
+  function refreshCategories() { updateCategories(); updateFilterCategories(); renderCategoryManager(); }
+  function setMonthFilters(month) {
+    if (!month) return;
+    const [year, monthNumber] = month.split("-").map(Number);
+    const lastDay = new Date(year, monthNumber, 0).getDate();
+    $("filterFrom").value = `${month}-01`;
+    $("filterTo").value = `${month}-${String(lastDay).padStart(2, "0")}`;
+  }
+  function filteredRecords() {
+    const from = $("filterFrom").value, to = $("filterTo").value;
+    return records.filter(r =>
+      (!from || r.date >= from) && (!to || r.date <= to) &&
+      (!$("filterType").value || r.type === $("filterType").value) &&
+      (!$("filterCategory").value || r.category === $("filterCategory").value)
+    ).sort((a,b) => b.date.localeCompare(a.date) || b.created - a.created);
+  }
+  function updateFilterCategories() {
+    const selected = $("filterCategory").value;
+    const categories = [...new Set([...settings.categories.income, ...settings.categories.expense, ...records.map(r => r.category)])];
+    $("filterCategory").innerHTML = '<option value="">全部分類</option>' + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    $("filterCategory").value = categories.includes(selected) ? selected : "";
+  }
+  function render() {
+    const month = $("month").value;
+    const monthTotal = sumByType(records.filter(r => r.date.startsWith(month)));
+    const allTotal = sumByType(records);
+    const setBalance = (id, value) => { $(id).textContent = money(value); $(id).classList.toggle("expense", value < 0); };
+    $("incomeTotal").textContent = money(monthTotal.income);
+    $("expenseTotal").textContent = money(monthTotal.expense);
+    setBalance("balance", monthTotal.income - monthTotal.expense);
+    setBalance("allTimeBalance", allTotal.income - allTotal.expense);
+    updateFilterCategories();
+    const visibleRecords = filteredRecords();
+    $("rows").innerHTML = visibleRecords.length ? visibleRecords.map(r => `<tr><td>${escapeHtml(r.date)}</td><td class="${r.type}">${r.type === "income" ? "收入" : "支出"}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.note)}</td><td class="amount ${r.type}">${r.type === "income" ? "+" : "−"}${money(r.amount)}</td><td><button class="danger" data-delete="${escapeHtml(r.id)}" aria-label="刪除">刪除</button></td></tr>`).join("") : '<tr><td class="empty" colspan="6">沒有符合篩選條件的記帳資料</td></tr>';
+    const totals = new Map();
+    visibleRecords.forEach(r => {
+      const total = totals.get(r.category) || { income: 0, expense: 0 };
+      total[r.type] += r.amount;
+      totals.set(r.category, total);
+    });
+    const categories = [...new Set([...settings.categories.income, ...settings.categories.expense, ...totals.keys()])];
+    $("statsRows").innerHTML = categories.map(category => {
+      const total = totals.get(category) || { income: 0, expense: 0 };
+      return `<tr><td>${escapeHtml(category)}</td><td class="amount income">${money(total.income)}</td><td class="amount expense">${money(total.expense)}</td><td class="amount">${money(total.income-total.expense)}</td></tr>`;
+    }).join("");
+  }
+  $("type").addEventListener("change", updateCategories);
+  $("month").addEventListener("change", () => { setMonthFilters($("month").value); render(); });
+  ["filterFrom", "filterTo", "filterType", "filterCategory"].forEach(id => $(id).addEventListener("change", render));
+  document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => {
+    document.querySelectorAll("[data-tab]").forEach(tab => tab.classList.toggle("active", tab === button));
+    $("detailTab").classList.toggle("hidden", button.dataset.tab !== "detailTab");
+    $("statsTab").classList.toggle("hidden", button.dataset.tab !== "statsTab");
+  }));
+  $("entryForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const type = $("type").value, category = $("category").value, amount = Number($("amount").value), date = $("date").value;
+    if (!date) { alert("請選擇日期。"); return; }
+    if (!category || category === "__new__") { alert("請選擇分類。"); return; }
+    if (!Number.isFinite(amount) || amount <= 0) { alert("請輸入大於 0 的金額。"); return; }
+    records.push({ id: crypto.randomUUID(), date, type, category, amount, note: $("note").value.trim(), created: Date.now() });
+    save();
+    // 保留剛剛的類型、分類與日期，方便連續記帳
+    $("amount").value = ""; $("note").value = "";
+    render(); showToast("記帳完成");
+    $("amount").focus();
+  });
+  $("rows").addEventListener("click", e => {
+    const id = e.target.dataset.delete;
+    if (!id || !confirm("確定刪除這筆記帳資料？")) return;
+    records = records.filter(r => r.id !== id);
+    save(); render(); showToast("資料已刪除");
+  });
+  function downloadCsv(filename, rows) {
+    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
+  }
+  $("exportFiltered").addEventListener("click", () => {
+    const list = filteredRecords();
+    const rows = [["日期","類型","分類","金額","備註"], ...list.map(r => [r.date, r.type === "income" ? "收入" : "支出", r.category, r.amount, r.note || ""])];
+    downloadCsv(`個人記帳-篩選明細-${localDate}.csv`, rows);
+  });
+  /* ===== 完整備份（Excel：彙整／明細／設定 三個分頁）與匯入還原 ===== */
+  const TYPE_LABEL = { income: "收入", expense: "支出" };
+  const pad2 = n => String(n).padStart(2, "0");
+  function groupTotals(list, keyFn) {
+    const map = new Map();
+    list.forEach(r => { const k = keyFn(r), t = map.get(k) || { income: 0, expense: 0 }; t[r.type] += Number(r.amount) || 0; map.set(k, t); });
+    return map;
+  }
+  function buildWorkbook() {
+    const all = [...records].sort((a, b) => a.date.localeCompare(b.date) || (a.created || 0) - (b.created || 0));
+    const total = sumByType(all), now = new Date();
+    const stamp = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+    const months = [...groupTotals(all, r => r.date.slice(0, 7))].sort(([a], [b]) => a.localeCompare(b));
+    const cats = [...groupTotals(all, r => r.category)].sort(([a], [b]) => a.localeCompare(b, "zh-Hant"));
+    const summary = [
+      ["個人記帳本 完整備份"], ["備份時間", stamp], ["明細筆數", all.length], [],
+      ["項目", "收入總額", "支出總額", "結餘"], ["累積總結餘", total.income, total.expense, total.income - total.expense], [],
+      ["月份", "收入總額", "支出總額", "當月結餘"], ...months.map(([m, t]) => [m, t.income, t.expense, t.income - t.expense]), [],
+      ["分類", "收入總額", "支出總額", "分類結餘"], ...cats.map(([c, t]) => [c, t.income, t.expense, t.income - t.expense])
+    ];
+    const detail = [["日期", "類型", "分類", "金額", "備註", "編號", "建立時間"],
+      ...all.map(r => [r.date, TYPE_LABEL[r.type], r.category, r.amount, r.note || "", r.id, r.created || ""])];
+    const settingRows = [["設定項目", "數值"],
+      ["收入分類", settings.categories.income.join("、")], ["支出分類", settings.categories.expense.join("、")]];
+    const wb = XLSX.utils.book_new();
+    const add = (rows, name, widths) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws["!cols"] = widths.map(wch => ({ wch })); XLSX.utils.book_append_sheet(wb, ws, name); };
+    add(summary, "彙整", [18, 14, 14, 14]);
+    add(detail, "明細", [12, 6, 12, 10, 40, 38, 15]);
+    add(settingRows, "設定", [14, 60]);
+    return wb;
+  }
+  $("exportBackup").addEventListener("click", async () => {
+    if (!window.XLSX) { alert("Excel 元件還在載入，請確認網路連線後再試一次。"); return; }
+    const name = `個人記帳-完整備份-${localDate}.xlsx`;
+    const data = XLSX.write(buildWorkbook(), { bookType: "xlsx", type: "array" });
+    const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    // 手機、平板：開啟分享選單，可直接存到 Google 雲端硬碟或「檔案」
+    try {
+      const file = new File([blob], name, { type: blob.type });
+      if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name });
+        return;
+      }
+    } catch (error) { if (error.name === "AbortError") return; }
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast("完整備份已下載");
+  });
+
+  const blankCell = v => v === undefined || v === null || String(v).trim() === "";
+  const toNumber = v => blankCell(v) ? NaN : Number(String(v).replace(/[$,，\s元]/g, ""));
+  function cellToDate(v) {
+    let y, m, d;
+    if (typeof v === "number") { const c = XLSX.SSF.parse_date_code(v); if (!c) return ""; y = c.y; m = c.m; d = c.d; }
+    else {
+      const match = String(v || "").trim().match(/^(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
+      if (!match) return "";
+      [, y, m, d] = match.map(Number);
+    }
+    if (m < 1 || m > 12 || d < 1 || d > 31) return "";
+    return `${y}-${pad2(m)}-${pad2(d)}`;
+  }
+  function parseBackup(wb) {
+    const sheetRows = name => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: "" });
+    const headerIndex = (rows, must) => rows.findIndex(r => { const cells = r.map(c => String(c).trim()); return must.every(h => cells.includes(h)); });
+    let rows = null, h = -1;
+    for (const name of ["明細", ...wb.SheetNames]) {
+      if (!wb.Sheets[name]) continue;
+      const candidate = sheetRows(name), idx = headerIndex(candidate, ["日期", "類型", "分類", "金額"]);
+      if (idx >= 0) { rows = candidate; h = idx; break; }
+    }
+    if (!rows) throw new Error("找不到明細資料，表格需要有「日期、類型、分類、金額」欄位。");
+    const header = rows[h].map(c => String(c).trim());
+    const errors = [], list = [], ids = new Set(), base = Date.now();
+    rows.slice(h + 1).forEach((row, i) => {
+      if (row.every(blankCell)) return;
+      const get = name => { const c = header.indexOf(name); return c < 0 ? "" : row[c]; };
+      const text = name => String(get(name) ?? "").trim();
+      const date = cellToDate(get("日期"));
+      const type = ["收入", "income"].includes(text("類型")) ? "income" : ["支出", "expense"].includes(text("類型")) ? "expense" : "";
+      const category = text("分類"), amount = toNumber(get("金額"));
+      if (!date || !type || !category || !Number.isFinite(amount) || amount <= 0) { errors.push(h + i + 2); return; }
+      let id = text("編號");
+      if (!id || ids.has(id)) id = crypto.randomUUID();
+      ids.add(id);
+      list.push({ id, date, type, category, amount, note: text("備註"), created: Number(get("建立時間")) || base + i });
+    });
+    let newSettings = null;
+    if (wb.Sheets["設定"]) {
+      const map = new Map(sheetRows("設定").map(r => [String(r[0]).trim(), r[1]]));
+      const categories = {};
+      ["income", "expense"].forEach(t => {
+        const value = map.get(t === "income" ? "收入分類" : "支出分類");
+        if (!blankCell(value)) categories[t] = String(value).split(/[、,，]/).map(c => c.trim()).filter(Boolean);
+      });
+      if (Object.keys(categories).length) newSettings = { categories: Object.assign({}, settings.categories, categories) };
+    }
+    return { list, errors, newSettings };
+  }
+  $("importBackup").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", async e => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!window.XLSX) { alert("Excel 元件還在載入，請確認網路連線後再試一次。"); return; }
+    let parsed;
+    try { parsed = parseBackup(XLSX.read(await file.arrayBuffer(), { type: "array", codepage: 65001 })); }
+    catch (error) { alert("無法讀取這個檔案：" + error.message); return; }
+    const { list, errors, newSettings } = parsed;
+    if (!list.length) { alert("檔案裡沒有可以匯入的明細資料。"); return; }
+    let message = `備份檔共有 ${list.length} 筆明細${newSettings ? "，以及分類設定" : ""}。\n\n按「確定」會用備份檔取代目前所有記帳資料（目前 ${records.length} 筆），並同步到試算表。`;
+    if (errors.length) message += `\n\n有 ${errors.length} 列格式不正確，將會略過（第 ${errors.slice(0, 5).join("、")}${errors.length > 5 ? "…" : ""} 列）。`;
+    if (records.length) message += "\n\n如果還沒備份目前的資料，請先按「取消」，再按「下載完整備份」。";
+    if (!confirm(message)) return;
+    records = cleanRecords(list);
+    if (newSettings) settings = normalizeSettings(newSettings);
+    save(); refreshCategories(); render();
+    showToast(`已匯入 ${list.length} 筆明細`);
+  });
+  /* ===== 分類管理 ===== */
+  function renderCategoryManager() {
+    ["income", "expense"].forEach(t => {
+      $(t + "CategoryList").innerHTML = settings.categories[t].map(c => SYSTEM_CATEGORIES[t].includes(c)
+        ? `<span class="chip system">${escapeHtml(c)}</span>`
+        : `<span class="chip">${escapeHtml(c)}<button type="button" data-remove-cat="${escapeHtml(c)}" data-cat-type="${t}" aria-label="移除 ${escapeHtml(c)}">✕</button></span>`).join("");
+    });
+  }
+  function addCategory(type, name) {
+    name = String(name || "").trim();
+    if (!name) return false;
+    if (name === "__new__" || name.length > 20) { alert("分類名稱請在 20 字以內。"); return false; }
+    if (/[、,，]/.test(name)) { alert("分類名稱不能包含頓號或逗號。"); return false; }
+    if (settings.categories[type].includes(name)) { alert(`「${name}」已經在${type === "income" ? "收入" : "支出"}分類裡了。`); return false; }
+    settings.categories[type].push(name);
+    save(); refreshCategories();
+    showToast(`已新增分類「${name}」`);
+    return true;
+  }
+  $("categoryForm").addEventListener("submit", e => {
+    e.preventDefault();
+    if (addCategory($("newCategoryType").value, $("newCategoryName").value)) $("newCategoryName").value = "";
+  });
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-remove-cat]");
+    if (!btn) return;
+    const type = btn.dataset.catType, name = btn.dataset.removeCat;
+    if (!confirm(`確定移除${type === "income" ? "收入" : "支出"}分類「${name}」？已記錄的明細不受影響。`)) return;
+    settings.categories[type] = settings.categories[type].filter(c => c !== name);
+    save(); refreshCategories();
+  });
+  let lastCategory = "";
+  $("category").addEventListener("focus", () => { lastCategory = $("category").value; });
+  $("category").addEventListener("change", () => {
+    if ($("category").value !== "__new__") { lastCategory = $("category").value; updateNoteRequirement(); return; }
+    const type = $("type").value;
+    const name = prompt(`新增${type === "income" ? "收入" : "支出"}分類名稱：`);
+    if (name && addCategory(type, name)) { $("category").value = name.trim(); lastCategory = name.trim(); }
+    else $("category").value = settings.categories[type].includes(lastCategory) ? lastCategory : settings.categories[type][0];
+    updateNoteRequirement();
+  });
+
+  refreshCategories(); setMonthFilters($("month").value); render();
+})();
+</script>
+</body>
+</html>
