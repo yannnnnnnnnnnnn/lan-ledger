@@ -36,10 +36,12 @@
     .forms label,.filters label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .forms button{height:42px}
     .tabs{flex-wrap:wrap}
+    tr.total td,tr.group td{font-weight:600;background:#f3f6f0}tr.total td{border-bottom:0}tr.group td:last-child{font-weight:400;color:var(--muted);font-size:13px}
+    td.share{font-variant-numeric:tabular-nums}.track{display:inline-block;width:64px;height:8px;border-radius:4px;background:#edf1e9;overflow:hidden;vertical-align:middle;margin-right:8px}.track i{display:block;height:100%;background:currentColor;opacity:.75}
     @media(max-width:480px){
       header{padding:20px 14px 18px}header h1{font-size:22px}
       .toolbar>div{flex:1 1 100%}.month{width:100%}.toolbar button{width:100%}
-      .tabs button{flex:1 1 auto}.tabs #exportFiltered{flex-basis:100%}
+      .tabs button{flex:1 1 auto;padding:9px 10px}.tabs #exportFiltered{flex-basis:100%}
       th,td{padding:9px 6px;font-size:14px}
     }
     @media(max-width:360px){
@@ -117,19 +119,32 @@
     <p class="hint">點分類旁的 ✕ 可移除；已記錄的明細不受影響。灰色的「其他」為系統保留，不能移除。也可以直接在 Google 試算表的「設定」分頁修改（用頓號「、」分隔）。</p>
   </section>
   <section class="panel">
-    <h2>記帳資料與分類統計</h2>
+    <h2>記帳資料與統計</h2>
     <div class="filters">
       <div><label for="filterFrom">開始日期</label><input id="filterFrom" type="date"></div>
       <div><label for="filterTo">結束日期</label><input id="filterTo" type="date"></div>
       <div><label for="filterType">收支類型</label><select id="filterType"><option value="">全部</option><option value="income">收入</option><option value="expense">支出</option></select></div>
       <div><label for="filterCategory">分類</label><select id="filterCategory"><option value="">全部分類</option></select></div>
     </div>
-    <div class="tabs"><button type="button" class="active" data-tab="detailTab">收支明細</button><button type="button" data-tab="statsTab">分類統計</button><button type="button" class="secondary" id="exportFiltered">匯出篩選結果 CSV</button></div>
+    <div class="tabs"><button type="button" class="active" data-tab="detailTab">收支明細</button><button type="button" data-tab="dayTab">日統計</button><button type="button" data-tab="monthTab">月統計</button><button type="button" data-tab="statsTab">分類統計</button><button type="button" data-tab="cumTab">累積統計</button><button type="button" class="secondary" id="exportFiltered">匯出目前表格 CSV</button></div>
     <div id="detailTab"><div class="panel-head"><h2>收支明細</h2></div>
       <div class="table-wrap"><table><thead><tr><th>日期</th><th>類型</th><th>分類</th><th>備註</th><th style="text-align:right">金額</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
     </div>
-    <div id="statsTab" class="hidden"><div class="panel-head"><h2>各分類收入／支出統計</h2></div>
-      <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">收入總額</th><th style="text-align:right">支出總額</th><th style="text-align:right">分類結餘</th></tr></thead><tbody id="statsRows"></tbody></table></div>
+    <div id="dayTab" class="hidden"><div class="panel-head"><h2>日統計｜每天的<span data-kind>支出</span>花在哪些分類</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">金額</th><th>占比</th></tr></thead><tbody id="dayStatRows"></tbody></table></div>
+      <p class="hint">依上方的日期範圍逐日列出，金額大的分類排前面。把「收支類型」改成收入，就會改看收入來源。</p>
+    </div>
+    <div id="monthTab" class="hidden"><div class="panel-head"><h2>月統計｜每個月的<span data-kind>支出</span>花在哪些分類</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">金額</th><th>占比</th></tr></thead><tbody id="monthStatRows"></tbody></table></div>
+      <p class="hint">列出所有月份，不受上方日期範圍限制。把「收支類型」改成收入，就會改看收入來源。</p>
+    </div>
+    <div id="statsTab" class="hidden"><div class="panel-head"><h2>分類統計</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">收入</th><th style="text-align:right">支出</th><th style="text-align:right">分類結餘</th></tr></thead><tbody id="statsRows"></tbody></table></div>
+      <p class="hint">上方日期範圍內，各分類的收入、支出與結餘。</p>
+    </div>
+    <div id="cumTab" class="hidden"><div class="panel-head"><h2>累積統計｜總<span data-kind>支出</span>花在哪些分類</h2></div>
+      <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">金額</th><th>占比</th></tr></thead><tbody id="cumStatRows"></tbody></table></div>
+      <p class="hint">從第一筆記帳到現在的全部加總，不受上方日期範圍限制。把「收支類型」改成收入，就會改看收入來源。</p>
     </div>
   </section>
 </main><div class="toast" id="toast"></div>
@@ -344,7 +359,10 @@ window.Cloud = (() => {
     try { store(); } catch (error) { console.error(error); }
     refreshCategories(); render();
   });
-  const money = n => "$" + Number(n).toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const money = n => (Number(n) < 0 ? "−" : "") + "$" + Math.abs(Number(n)).toLocaleString("zh-TW", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const round2 = n => Math.round(n * 100) / 100;
+  const EXPORT_NAME = { detailTab: "篩選明細", dayTab: "日統計", monthTab: "月統計", statsTab: "分類統計", cumTab: "累積統計" };
+  let activeTab = "detailTab", statTables = {};
   const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
   const sumByType = list => list.reduce((t, r) => { t[r.type] += Number(r.amount) || 0; return t; }, { income: 0, expense: 0 });
   function showToast(text) { const el = $("toast"); el.textContent = text; el.style.display = "block"; setTimeout(() => el.style.display = "none", 2600); }
@@ -369,8 +387,8 @@ window.Cloud = (() => {
     $("filterFrom").value = `${month}-01`;
     $("filterTo").value = `${month}-${String(lastDay).padStart(2, "0")}`;
   }
-  function filteredRecords() {
-    const from = $("filterFrom").value, to = $("filterTo").value;
+  function filteredRecords(allDates) {
+    const from = allDates ? "" : $("filterFrom").value, to = allDates ? "" : $("filterTo").value;
     return records.filter(r =>
       (!from || r.date >= from) && (!to || r.date <= to) &&
       (!$("filterType").value || r.type === $("filterType").value) &&
@@ -395,25 +413,63 @@ window.Cloud = (() => {
     updateFilterCategories();
     const visibleRecords = filteredRecords();
     $("rows").innerHTML = visibleRecords.length ? visibleRecords.map(r => `<tr><td>${escapeHtml(r.date)}</td><td class="${r.type}">${r.type === "income" ? "收入" : "支出"}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.note)}</td><td class="amount ${r.type}">${r.type === "income" ? "+" : "−"}${money(r.amount)}</td><td><button class="danger" data-delete="${escapeHtml(r.id)}" aria-label="刪除">刪除</button></td></tr>`).join("") : '<tr><td class="empty" colspan="6">沒有符合篩選條件的記帳資料</td></tr>';
-    const totals = new Map();
-    visibleRecords.forEach(r => {
-      const total = totals.get(r.category) || { income: 0, expense: 0 };
-      total[r.type] += r.amount;
-      totals.set(r.category, total);
-    });
-    const categories = [...new Set([...settings.categories.income, ...settings.categories.expense, ...totals.keys()])];
-    $("statsRows").innerHTML = categories.map(category => {
-      const total = totals.get(category) || { income: 0, expense: 0 };
-      return `<tr><td>${escapeHtml(category)}</td><td class="amount income">${money(total.income)}</td><td class="amount expense">${money(total.expense)}</td><td class="amount">${money(total.income-total.expense)}</td></tr>`;
-    }).join("");
+    // ===== 分類統計：上方篩選範圍內，各分類的收入／支出／結餘 =====
+    const zero = { income: 0, expense: 0 };
+    const toRow = (label, t) => [label, round2(t.income), round2(t.expense), round2(t.income - t.expense)];
+    const catTotals = groupTotals(visibleRecords, r => r.category);
+    const categories = [...new Set([...settings.categories.income, ...settings.categories.expense, ...catTotals.keys()])];
+    const catRows = categories.map(c => toRow(c, catTotals.get(c) || zero));
+    const rangeTotal = toRow("合計", sumByType(visibleRecords));
+    const tr = (row, cls) => `<tr${cls ? ` class="${cls}"` : ""}><td>${escapeHtml(row[0])}</td><td class="amount income">${money(row[1])}</td><td class="amount expense">${money(row[2])}</td><td class="amount${row[3] < 0 ? " expense" : ""}">${money(row[3])}</td></tr>`;
+    $("statsRows").innerHTML = catRows.map(r => tr(r)).join("") + tr(rangeTotal, "total");
+    // ===== 日／月／累積統計：每個期間的支出（或收入）花在哪些分類 =====
+    const kind = $("filterType").value === "income" ? "income" : "expense", kindLabel = kind === "income" ? "收入" : "支出";
+    document.querySelectorAll("[data-kind]").forEach(el => { el.textContent = kindLabel; });
+    const breakdown = (list, keyFn) => {
+      const groups = new Map();
+      list.forEach(r => {
+        if (r.type !== kind) return;
+        const key = keyFn(r), cats = groups.get(key) || new Map();
+        cats.set(r.category, (cats.get(r.category) || 0) + r.amount);
+        groups.set(key, cats);
+      });
+      return [...groups].sort(([a], [b]) => b.localeCompare(a)).map(([period, cats]) => {
+        const items = [...cats].map(([c, v]) => [c, round2(v)]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-Hant"));
+        return { period, items, total: round2(items.reduce((sum, item) => sum + item[1], 0)) };
+      });
+    };
+    const share = (v, total) => total > 0 ? Math.round(v / total * 1000) / 10 : 0;
+    const fillGroups = (id, groups) => {
+      $(id).innerHTML = groups.length ? groups.map(g =>
+        `<tr class="group"><td>${escapeHtml(g.period)}</td><td class="amount ${kind}">${money(g.total)}</td><td>${g.items.length} 個分類</td></tr>` +
+        g.items.map(([c, v]) => `<tr><td>${escapeHtml(c)}</td><td class="amount">${money(v)}</td><td class="share"><span class="track ${kind}"><i style="width:${share(v, g.total)}%"></i></span>${share(v, g.total).toFixed(1)}%</td></tr>`).join("")
+      ).join("") : `<tr><td class="empty" colspan="3">沒有符合篩選條件的${kindLabel}資料</td></tr>`;
+    };
+    const groupCsv = (title, groups) => [[title, "分類", kindLabel, "占比%"],
+      ...groups.flatMap(g => [...g.items.map(([c, v]) => [g.period, c, v, share(v, g.total)]), [g.period, "合計", g.total, g.total > 0 ? 100 : 0]])];
+    const allDates = filteredRecords(true);   // 月統計、累積統計不看日期範圍
+    const dayGroups = breakdown(visibleRecords, r => r.date);
+    const monthGroups = breakdown(allDates, r => r.date.slice(0, 7));
+    const totalGroups = breakdown(allDates, () => "全部期間");
+    fillGroups("dayStatRows", dayGroups);
+    fillGroups("monthStatRows", monthGroups);
+    fillGroups("cumStatRows", totalGroups);
+    statTables = {
+      dayTab: groupCsv("日期", dayGroups),
+      monthTab: groupCsv("月份", monthGroups),
+      statsTab: [["分類", "收入", "支出", "分類結餘"], ...catRows, rangeTotal],
+      cumTab: groupCsv("期間", totalGroups)
+    };
   }
   $("type").addEventListener("change", updateCategories);
   $("month").addEventListener("change", () => { setMonthFilters($("month").value); render(); });
   ["filterFrom", "filterTo", "filterType", "filterCategory"].forEach(id => $(id).addEventListener("change", render));
   document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => {
-    document.querySelectorAll("[data-tab]").forEach(tab => tab.classList.toggle("active", tab === button));
-    $("detailTab").classList.toggle("hidden", button.dataset.tab !== "detailTab");
-    $("statsTab").classList.toggle("hidden", button.dataset.tab !== "statsTab");
+    activeTab = button.dataset.tab;
+    document.querySelectorAll("[data-tab]").forEach(tab => {
+      tab.classList.toggle("active", tab === button);
+      $(tab.dataset.tab).classList.toggle("hidden", tab !== button);
+    });
   }));
   $("entryForm").addEventListener("submit", e => {
     e.preventDefault();
@@ -440,6 +496,7 @@ window.Cloud = (() => {
     a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
   }
   $("exportFiltered").addEventListener("click", () => {
+    if (activeTab !== "detailTab") { downloadCsv(`個人記帳-${EXPORT_NAME[activeTab]}-${localDate}.csv`, statTables[activeTab]); return; }
     const list = filteredRecords();
     const rows = [["日期","類型","分類","金額","備註"], ...list.map(r => [r.date, r.type === "income" ? "收入" : "支出", r.category, r.amount, r.note || ""])];
     downloadCsv(`個人記帳-篩選明細-${localDate}.csv`, rows);
