@@ -35,6 +35,13 @@
     .month{width:auto;min-width:160px}
     .forms label,.filters label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .forms button{height:42px}
+    .pay-row{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,170px)) 1fr;gap:10px;align-items:end}.pay-row.hidden{display:none}.pay-row>*{min-width:0}
+    .inst-summary{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.inst-summary div{flex:1 1 110px;background:#f3f6f0;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--muted)}.inst-summary strong{display:block;font-size:17px;color:var(--ink);font-variant-numeric:tabular-nums}
+    td.inst-item{max-width:240px;overflow:hidden;text-overflow:ellipsis}td.inst-item small{color:var(--muted);font-size:12px}tr.done td,tr.done td strong{color:var(--muted);font-weight:400}
+    .pay-preview{margin:0;align-self:center;color:var(--muted);font-size:13px;line-height:1.5}
+    @media(min-width:801px){.forms>button[type=submit]{grid-row:1;grid-column:6}}
+    @media(max-width:800px){.pay-row{grid-template-columns:1fr 1fr}.pay-preview{grid-column:1/-1}}
+    @media(max-width:360px){.pay-row{grid-template-columns:1fr}}
     .tabs{flex-wrap:wrap}
     tr.total td,tr.group td{font-weight:600;background:#f3f6f0}tr.total td{border-bottom:0}tr.group td:last-child{font-weight:400;color:var(--muted);font-size:13px}
     td.share{font-variant-numeric:tabular-nums}.track{display:inline-block;width:64px;height:8px;border-radius:4px;background:#edf1e9;overflow:hidden;vertical-align:middle;margin-right:8px}.track i{display:block;height:100%;background:currentColor;opacity:.75}
@@ -61,13 +68,13 @@
     .sync{display:flex;align-items:center;gap:8px;font-size:13px}
     .sync-status{background:#ffffff1f;border-radius:999px;padding:5px 11px;color:#e3eade;white-space:nowrap}
     .sync-status::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#cfd8cb;margin-right:6px;vertical-align:1px}
-    .sync-status[data-state=ok]::before{background:#9fe0a8}.sync-status[data-state=busy]::before{background:#f2d47c}.sync-status[data-state=error]::before{background:#ff9d8f}
+    .sync-status[data-state=ok]::before{background:#9fe0a8}.sync-status[data-state=busy]::before{background:#f2d47c}.sync-status[data-state=error]::before{background:#ff9d8f}.sync-status[data-state=error]{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
     .sync button{background:#ffffff26;color:#fff;padding:6px 11px;font-size:13px}
     .auth{position:fixed;inset:0;z-index:100;background:var(--cream);display:flex;align-items:center;justify-content:center;padding:max(20px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));overflow:auto}
     .auth-card{width:100%;max-width:380px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:22px;display:grid;gap:6px}
     .auth-card h2{margin:0;font-size:19px}.auth-card p{margin:0 0 8px;color:var(--muted);font-size:13px}
     .auth-card label{margin:6px 0 0}.auth-card button{height:44px;margin-top:6px}
-    .auth-card .auth-msg{min-height:1.4em;margin:4px 0 0;color:var(--red)}.auth-card .auth-msg.ok{color:var(--green)}
+    .auth-card .auth-msg{white-space:pre-line;min-height:1.4em;margin:4px 0 0;color:var(--red)}.auth-card .auth-msg.ok{color:var(--green)}
     .backup-actions{display:flex;gap:8px;flex-wrap:wrap}
     @media(max-width:480px){.toolbar .backup-actions button{width:auto;flex:1 1 0}}
     .auth-links{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding-top:10px;margin-top:2px}
@@ -94,7 +101,7 @@
     <div class="card"><span>本月收入</span><strong id="incomeTotal">$0</strong></div>
     <div class="card"><span>本月支出</span><strong id="expenseTotal">$0</strong></div>
     <div class="card"><span>本月結餘</span><strong id="balance">$0</strong></div>
-    <div class="card"><span>累積總結餘</span><strong id="allTimeBalance">$0</strong><small>全部已記帳收入－支出</small></div>
+    <div class="card"><span>累積總結餘</span><strong id="allTimeBalance">$0</strong><small id="allTimeNote">截至本月底的收入－支出</small></div>
   </section>
   <section class="panel">
     <h2>新增收支</h2>
@@ -104,8 +111,20 @@
       <div><label for="category">分類</label><select id="category"></select></div>
       <div><label for="amount">金額（元）</label><input id="amount" type="number" min="0.01" step="0.01" required placeholder="0"></div>
       <div><label id="noteLabel" for="note">備註</label><input id="note" maxlength="100" placeholder="選填"></div>
+      <div class="pay-row" id="payRow">
+        <div><label for="payment">付款方式</label><select id="payment"><option value="cash">現金</option><option value="card">刷卡</option></select></div>
+        <div id="instCountBox" class="hidden"><label for="instCount">分期期數（1＝不分期）</label><input id="instCount" type="number" min="1" max="60" step="1" value="1" inputmode="numeric"></div>
+        <div id="instStartBox" class="hidden"><label for="instStart">開始月份</label><input id="instStart" type="month"></div>
+        <p class="pay-preview hidden" id="instPreview"></p>
+      </div>
       <button type="submit">新增</button>
     </form>
+  </section>
+  <section class="panel">
+    <div class="panel-head"><h2>刷卡分期總覽</h2></div>
+    <div class="inst-summary" id="instSummary"></div>
+    <div class="table-wrap"><table><thead><tr><th>項目</th><th style="text-align:right">每期</th><th>已入帳</th><th style="text-align:right">剩餘期數</th><th style="text-align:right">剩餘金額</th></tr></thead><tbody id="instRows"></tbody></table></div>
+    <p class="hint">以上方的「月報月份」為準：該月（含）以前的期數算已入帳，之後的算還沒繳。要取消某筆分期，到收支明細刪除其中任何一期，就會整筆一起刪。</p>
   </section>
   <section class="panel">
     <h2>分類管理</h2>
@@ -128,7 +147,7 @@
     </div>
     <div class="tabs"><button type="button" class="active" data-tab="detailTab">收支明細</button><button type="button" data-tab="dayTab">日統計</button><button type="button" data-tab="monthTab">月統計</button><button type="button" data-tab="statsTab">分類統計</button><button type="button" data-tab="cumTab">累積統計</button><button type="button" class="secondary" id="exportFiltered">匯出目前表格 CSV</button></div>
     <div id="detailTab"><div class="panel-head"><h2>收支明細</h2></div>
-      <div class="table-wrap"><table><thead><tr><th>日期</th><th>類型</th><th>分類</th><th>備註</th><th style="text-align:right">金額</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+      <div class="table-wrap"><table><thead><tr><th>日期</th><th>類型</th><th>分類</th><th>付款</th><th>備註</th><th style="text-align:right">金額</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
     </div>
     <div id="dayTab" class="hidden"><div class="panel-head"><h2>日統計｜每天的<span data-kind>支出</span>花在哪些分類</h2></div>
       <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">金額</th><th>占比</th></tr></thead><tbody id="dayStatRows"></tbody></table></div>
@@ -144,7 +163,7 @@
     </div>
     <div id="cumTab" class="hidden"><div class="panel-head"><h2>累積統計｜總<span data-kind>支出</span>花在哪些分類</h2></div>
       <div class="table-wrap"><table><thead><tr><th>分類</th><th style="text-align:right">金額</th><th>占比</th></tr></thead><tbody id="cumStatRows"></tbody></table></div>
-      <p class="hint">從第一筆記帳到現在的全部加總，不受上方日期範圍限制。把「收支類型」改成收入，就會改看收入來源。</p>
+      <p class="hint">從第一筆記帳加總到「月報月份」的月底，不受上方日期範圍限制；還沒到期的分期不算在內。把「收支類型」改成收入，就會改看收入來源。</p>
     </div>
   </section>
 </main><div class="toast" id="toast"></div>
@@ -167,13 +186,37 @@ window.Cloud = (() => {
   let passcode = null, connected = false, listener = null, synced = {}, settingsSynced = null, chain = Promise.resolve(), timer = null, version = null;
 
   function setStatus(text, state) { const el = $("syncStatus"); if (el) { el.textContent = text; el.dataset.state = state || ""; } }
-  const offlineText = () => navigator.onLine ? "同步失敗，稍後重試" : "離線中，連線後同步";
+  /* ===== 同步失敗時，點右上角的狀態可以看到原因 ===== */
+  let lastError = null;
+  function failed(e) {
+    console.error(e); lastError = e;
+    setStatus(navigator.onLine ? "同步失敗，點此看原因" : "離線中，連線後同步", "error");
+  }
+  const FIX_ACCESS = "修正方式：Apps Script →「部署」→「管理部署作業」→ 鉛筆圖示 →「執行身分」選「我」、「誰可以存取」選「所有人」→ 版本選「新版本」→「部署」。";
+  function explain(err) {
+    if (!navigator.onLine) return "目前沒有網路。資料先存在這台裝置，連上網路後會自動同步。";
+    const code = err && err.code;
+    if (code === "network" || code === "not_json") return "記帳網頁連不上試算表程式。\n\n如果那個網址用瀏覽器打得開、網頁卻連不上，通常是部署的存取權限不是「所有人」：你登入 Google 的瀏覽器開得了，但記帳網頁是匿名連線，會被擋下來。\n\n" + FIX_ACCESS;
+    if (code === "no_spreadsheet") return "試算表程式有在執行，但沒有連到任何試算表。\n\n這份程式必須從試算表裡面開啟：打開你的 Google 試算表 →「擴充功能」→「Apps Script」，把 Code.gs 貼在那裡，再用「新增部署作業」部署成網頁應用程式，並把新的 /exec 網址換到 index.html。";
+    if (code === "wrong_passcode") return "密碼和試算表程式裡的不一樣。請重新整理網頁，再輸入正確的密碼。";
+    if (code === "passcode_not_set") return "試算表程式還沒設定密碼（Code.gs 的 PASSCODE 是空的）。設定後要重新部署成「新版本」。";
+    if (code === "server_error") return "試算表程式執行時發生錯誤：\n\n" + (err.detail || "（沒有詳細訊息）") + "\n\n請把這段訊息記下來，方便排查。";
+    if (code === "http") return "試算表程式回應錯誤（" + err.message + "）。請稍後再試；一直發生的話，請重新部署一次。";
+    return "同步時發生錯誤：" + ((err && (err.detail || err.message)) || err);
+  }
+  $("syncStatus").addEventListener("click", () => {
+    if (lastError && $("syncStatus").dataset.state === "error") alert(explain(lastError));
+  });
 
   async function api(action, extra) {
-    const res = await fetch(SHEETS_API_URL, { method: "POST", body: JSON.stringify(Object.assign({ action, passcode }, extra || {})) });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    if (!data.ok) { const err = new Error(data.error || "error"); err.code = data.error; throw err; }
+    const problem = (code, message, detail) => { const err = new Error(message || code); err.code = code; err.detail = detail; return err; };
+    let res, data;
+    try { res = await fetch(SHEETS_API_URL, { method: "POST", body: JSON.stringify(Object.assign({ action, passcode }, extra || {})) }); }
+    catch (e) { throw problem("network", e.message); }
+    if (!res.ok) throw problem("http", "HTTP " + res.status);
+    try { data = await res.json(); }
+    catch (e) { throw problem("not_json", "回應不是預期的格式"); }
+    if (!data.ok) throw problem(data.error || "error", data.error, data.detail);
     return data;
   }
 
@@ -195,7 +238,7 @@ window.Cloud = (() => {
           $("authOverlay").hidden = true; $("loadingScreen").hidden = false;
           resolve(data);
         } catch (err) {
-          $("authMsg").textContent = err.code === "wrong_passcode" ? "密碼錯誤，請再試一次" : err.code === "passcode_not_set" ? "試算表程式還沒設定密碼（請修改 Code.gs 的 PASSCODE）" : "無法連線，請確認網路後再試";
+          $("authMsg").textContent = err.code === "wrong_passcode" ? "密碼錯誤，請再試一次" : explain(err);
         } finally { btn.disabled = false; }
       };
     });
@@ -239,7 +282,7 @@ window.Cloud = (() => {
     setStatus("同步中…", "busy");
     timer = setTimeout(async () => {
       try { await pushNow(); setStatus("已同步", "ok"); }
-      catch (e) { console.error(e); setStatus(offlineText(), "error"); }
+      catch (e) { failed(e); }
     }, 600);
   }
 
@@ -248,7 +291,7 @@ window.Cloud = (() => {
     if (!connected || refreshing) return;
     refreshing = true;
     try { await pushNow(); const d = await pull(); listener && listener({ full: d }); setStatus("已同步", "ok"); }
-    catch (e) { console.error(e); setStatus(offlineText(), "error"); }
+    catch (e) { failed(e); }
     finally { refreshing = false; }
   }
 
@@ -269,8 +312,8 @@ window.Cloud = (() => {
         try { await api("version"); }
         catch (err) {
           if (err.code === "wrong_passcode") passcode = null;
-          else if (err.code === "passcode_not_set") { setStatus("試算表程式尚未設定密碼", "error"); return; }
-          else { setStatus(offlineText(), "error"); connected = true; startWatching(); return; } // 離線：先用本機資料
+          else if (err.code === "passcode_not_set" || err.code === "no_spreadsheet") { failed(err); return; }
+          else { failed(err); connected = true; startWatching(); return; } // 連不上：先用本機資料
         }
       }
       if (!passcode) await showPasscode(localStorage.getItem(K.pass) ? "密碼已變更，請重新輸入" : "");
@@ -281,7 +324,7 @@ window.Cloud = (() => {
       $("logoutBtn").hidden = false;
       setStatus("同步中…", "busy");
       try { await pushNow(); await pull(); setStatus("已同步", "ok"); }
-      catch (e) { console.error(e); setStatus(offlineText(), "error"); }
+      catch (e) { failed(e); }
       startWatching();
     } catch (e) {
       console.error(e); setStatus("連線錯誤，暫存本機", "error");
@@ -300,7 +343,7 @@ window.Cloud = (() => {
       setStatus("同步中…", "busy");
       try { await pushNow(); setStatus("已同步", "ok"); }
       catch (e) {
-        console.error(e); setStatus(offlineText(), "error");
+        failed(e);
         alert("還有資料沒有存進試算表，為了避免資料遺失，現在不能登出。\n\n請確認網路連線，等右上角顯示「已同步」後再登出。");
         return;
       }
@@ -329,7 +372,27 @@ window.Cloud = (() => {
   };
   const cleanRecords = list => (Array.isArray(list) ? list : [])
     .filter(r => r && r.id && typeof r.date === "string" && (r.type === "income" || r.type === "expense"))
-    .map(r => ({ id: String(r.id), date: r.date, type: r.type, category: String(r.category || "其他"), amount: Number(r.amount) || 0, note: String(r.note || ""), created: Number(r.created) || 0 }));
+    .map(r => {
+      const out = { id: String(r.id), date: r.date, type: r.type, category: String(r.category || "其他"), amount: Number(r.amount) || 0, note: String(r.note || ""), created: Number(r.created) || 0 };
+      // 付款方式與分期：有填才帶這些欄位（舊資料維持原樣）
+      if (r.type === "expense" && (r.payment === "cash" || r.payment === "card")) out.payment = r.payment;
+      if (r.instId && Number(r.instTotal) > 1) { out.instNo = Number(r.instNo) || 1; out.instTotal = Number(r.instTotal); out.instId = String(r.instId); }
+      return out;
+    });
+  /* ===== 付款方式與分期 ===== */
+  const PAY_LABEL = { cash: "現金", card: "刷卡" };
+  const two = n => String(n).padStart(2, "0");
+  const payText = r => r.payment ? PAY_LABEL[r.payment] + (r.instTotal > 1 ? ` ${r.instNo}/${r.instTotal}` : "") : "";
+  const instText = r => r.instTotal > 1 ? `${r.instNo}/${r.instTotal}` : "";
+  const addMonths = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${two(d.getMonth() + 1)}`; };
+  const dateInMonth = (ym, day) => { const [y, m] = ym.split("-").map(Number); return `${ym}-${two(Math.min(day, new Date(y, m, 0).getDate()))}`; };   // 31 號遇到小月就用月底
+  // 均攤：整數金額以元為單位、有小數就以分為單位，除不盡的尾差放在第一期
+  function splitAmount(total, count) {
+    const scale = Number.isInteger(total) ? 1 : 100;
+    const whole = Math.round(total * scale), base = Math.floor(whole / count);
+    if (base <= 0) return null;
+    return Array.from({ length: count }, (_, i) => (i === 0 ? whole - base * (count - 1) : base) / scale);
+  }
   const normalizeSettings = s => {
     const cats = s && typeof s === "object" && s.categories && typeof s.categories === "object" ? s.categories : {};
     const out = { categories: {} };
@@ -373,6 +436,25 @@ window.Cloud = (() => {
     if (categories.includes(current)) $("category").value = current;
     updateNoteRequirement();
   }
+  let instStartTouched = false;
+  function updatePaymentUI() {
+    const isExpense = $("type").value === "expense", isCard = isExpense && $("payment").value === "card";
+    const count = Math.floor(Number($("instCount").value)) || 1, split = isCard && count >= 2;
+    $("payRow").classList.toggle("hidden", !isExpense);
+    $("instCountBox").classList.toggle("hidden", !isCard);
+    $("instStartBox").classList.toggle("hidden", !split);
+    if (split && (!instStartTouched || !$("instStart").value)) $("instStart").value = ($("date").value || localDate).slice(0, 7);
+    const amount = Number($("amount").value), start = $("instStart").value;
+    let text = "";
+    if (split && count > 60) text = "分期期數最多 60 期";
+    else if (split && amount > 0 && start) {
+      const parts = splitAmount(amount, count);
+      text = !parts ? "金額太小，沒辦法分成這麼多期"
+        : `每期 ${money(parts[1])}，共 ${count} 期（${start} ～ ${addMonths(start, count - 1)}）` + (parts[0] !== parts[1] ? `，首期 ${money(parts[0])}` : "");
+    }
+    $("instPreview").textContent = text;
+    $("instPreview").classList.toggle("hidden", !text);
+  }
   function updateNoteRequirement() {
     const required = $("category").value === "其他";
     $("note").required = required;
@@ -401,18 +483,46 @@ window.Cloud = (() => {
     $("filterCategory").innerHTML = '<option value="">全部分類</option>' + categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     $("filterCategory").value = categories.includes(selected) ? selected : "";
   }
+  // ===== 刷卡分期總覽：每一筆分期還剩幾期、多少錢 =====
+  function renderInstallments(month, monthEnd) {
+    const sum = list => round2(list.reduce((total, r) => total + r.amount, 0));
+    const groups = new Map();
+    records.forEach(r => { if (!r.instId) return; if (!groups.has(r.instId)) groups.set(r.instId, []); groups.get(r.instId).push(r); });
+    const plans = [...groups.values()].map(list => {
+      list.sort((a, b) => a.date.localeCompare(b.date) || a.instNo - b.instNo);
+      const left = list.filter(r => r.date > monthEnd), first = list[0], last = list[list.length - 1];
+      return { category: first.category, note: first.note, total: sum(list), count: Math.max(first.instTotal, list.length), per: last.amount,
+        start: first.date.slice(0, 7), end: last.date.slice(0, 7), paid: list.length - left.length, leftCount: left.length, leftAmount: sum(left),
+        thisMonth: month ? sum(list.filter(r => r.date.startsWith(month))) : 0 };
+    }).sort((a, b) => (b.leftCount > 0) - (a.leftCount > 0) || b.leftAmount - a.leftAmount || b.end.localeCompare(a.end));   // 還沒繳完的在前，剩越多越前面
+    const active = plans.filter(p => p.leftCount > 0);
+    const leftAmount = round2(active.reduce((t, p) => t + p.leftAmount, 0)), leftCount = active.reduce((t, p) => t + p.leftCount, 0);
+    const dueThisMonth = round2(plans.reduce((t, p) => t + p.thisMonth, 0));
+    $("instSummary").innerHTML = `<div>還沒繳完<strong>${active.length} 筆</strong></div><div>${month ? escapeHtml(month) : "本月"} 分期<strong>${money(dueThisMonth)}</strong></div><div>之後還要繳<strong>${money(leftAmount)}</strong></div>`;
+    $("instRows").innerHTML = plans.length ? plans.map(p =>
+      `<tr${p.leftCount ? "" : ' class="done"'}><td class="inst-item"><strong>${escapeHtml(p.category)}</strong>${p.note ? " " + escapeHtml(p.note) : ""}<br><small>${p.start} ～ ${p.end}・總額 ${money(p.total)}</small></td>` +
+      `<td class="amount">${money(p.per)}</td><td class="share"><span class="track expense"><i style="width:${Math.round(p.paid / p.count * 100)}%"></i></span>${p.paid}/${p.count}</td>` +
+      `<td class="amount">${p.leftCount ? p.leftCount + " 期" : "—"}</td><td class="amount${p.leftCount ? " expense" : ""}">${p.leftCount ? money(p.leftAmount) : "已繳清"}</td></tr>`
+    ).join("") + `<tr class="total"><td>合計</td><td></td><td></td><td class="amount">${leftCount} 期</td><td class="amount${leftAmount > 0 ? " expense" : ""}">${money(leftAmount)}</td></tr>`
+      : '<tr><td class="empty" colspan="5">目前沒有刷卡分期紀錄</td></tr>';
+  }
   function render() {
     const month = $("month").value;
     const monthTotal = sumByType(records.filter(r => r.date.startsWith(month)));
-    const allTotal = sumByType(records);
+    // 累積只算到月報月份的月底：之後才到期的分期先不算
+    const monthEnd = month ? month + "-31" : "9999-12-31";
+    const allTotal = sumByType(records.filter(r => r.date <= monthEnd));
+    const laterInstallments = round2(records.filter(r => r.date > monthEnd && r.instId).reduce((sum, r) => sum + r.amount, 0));
+    $("allTimeNote").textContent = (month ? `截至 ${month} 月底` : "全部已記帳") + (laterInstallments > 0 ? `・之後還有分期 ${money(laterInstallments)}` : "");
     const setBalance = (id, value) => { $(id).textContent = money(value); $(id).classList.toggle("expense", value < 0); };
     $("incomeTotal").textContent = money(monthTotal.income);
     $("expenseTotal").textContent = money(monthTotal.expense);
     setBalance("balance", monthTotal.income - monthTotal.expense);
     setBalance("allTimeBalance", allTotal.income - allTotal.expense);
+    renderInstallments(month, monthEnd);
     updateFilterCategories();
     const visibleRecords = filteredRecords();
-    $("rows").innerHTML = visibleRecords.length ? visibleRecords.map(r => `<tr><td>${escapeHtml(r.date)}</td><td class="${r.type}">${r.type === "income" ? "收入" : "支出"}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.note)}</td><td class="amount ${r.type}">${r.type === "income" ? "+" : "−"}${money(r.amount)}</td><td><button class="danger" data-delete="${escapeHtml(r.id)}" aria-label="刪除">刪除</button></td></tr>`).join("") : '<tr><td class="empty" colspan="6">沒有符合篩選條件的記帳資料</td></tr>';
+    $("rows").innerHTML = visibleRecords.length ? visibleRecords.map(r => `<tr><td>${escapeHtml(r.date)}</td><td class="${r.type}">${r.type === "income" ? "收入" : "支出"}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(payText(r))}</td><td>${escapeHtml(r.note)}</td><td class="amount ${r.type}">${r.type === "income" ? "+" : "−"}${money(r.amount)}</td><td><button class="danger" data-delete="${escapeHtml(r.id)}" aria-label="刪除">刪除</button></td></tr>`).join("") : '<tr><td class="empty" colspan="7">沒有符合篩選條件的記帳資料</td></tr>';
     // ===== 分類統計：上方篩選範圍內，各分類的收入／支出／結餘 =====
     const zero = { income: 0, expense: 0 };
     const toRow = (label, t) => [label, round2(t.income), round2(t.expense), round2(t.income - t.expense)];
@@ -450,7 +560,7 @@ window.Cloud = (() => {
     const allDates = filteredRecords(true);   // 月統計、累積統計不看日期範圍
     const dayGroups = breakdown(visibleRecords, r => r.date);
     const monthGroups = breakdown(allDates, r => r.date.slice(0, 7));
-    const totalGroups = breakdown(allDates, () => "全部期間");
+    const totalGroups = breakdown(allDates.filter(r => r.date <= monthEnd), () => month ? `截至 ${month} 月底` : "全部期間");
     fillGroups("dayStatRows", dayGroups);
     fillGroups("monthStatRows", monthGroups);
     fillGroups("cumStatRows", totalGroups);
@@ -461,7 +571,9 @@ window.Cloud = (() => {
       cumTab: groupCsv("期間", totalGroups)
     };
   }
-  $("type").addEventListener("change", updateCategories);
+  $("type").addEventListener("change", () => { updateCategories(); updatePaymentUI(); });
+  ["payment", "instCount", "amount", "date"].forEach(id => $(id).addEventListener("input", updatePaymentUI));
+  $("instStart").addEventListener("input", () => { instStartTouched = true; updatePaymentUI(); });
   $("month").addEventListener("change", () => { setMonthFilters($("month").value); render(); });
   ["filterFrom", "filterTo", "filterType", "filterCategory"].forEach(id => $(id).addEventListener("change", render));
   document.querySelectorAll("[data-tab]").forEach(button => button.addEventListener("click", () => {
@@ -477,17 +589,45 @@ window.Cloud = (() => {
     if (!date) { alert("請選擇日期。"); return; }
     if (!category || category === "__new__") { alert("請選擇分類。"); return; }
     if (!Number.isFinite(amount) || amount <= 0) { alert("請輸入大於 0 的金額。"); return; }
-    records.push({ id: crypto.randomUUID(), date, type, category, amount, note: $("note").value.trim(), created: Date.now() });
+    const note = $("note").value.trim(), created = Date.now();
+    const payment = type === "expense" ? $("payment").value : "";
+    const count = payment === "card" ? Math.floor(Number($("instCount").value)) || 1 : 1;
+    let message = "記帳完成";
+    if (count >= 2) {
+      // 刷卡分期：從開始月份起，每個月各記一筆
+      const start = $("instStart").value;
+      if (count > 60) { alert("分期期數最多 60 期。"); return; }
+      if (!/^\d{4}-\d{2}$/.test(start)) { alert("請選擇分期的開始月份。"); return; }
+      const parts = splitAmount(amount, count);
+      if (!parts) { alert("金額太小，沒辦法分成這麼多期。"); return; }
+      const instId = crypto.randomUUID(), day = Number(date.slice(8, 10));
+      parts.forEach((part, i) => records.push({ id: crypto.randomUUID(), date: dateInMonth(addMonths(start, i), day), type, category, amount: part, note, created: created + i, payment, instNo: i + 1, instTotal: count, instId }));
+      message = `已分成 ${count} 期，${start} 起每月一筆`;
+    } else {
+      const record = { id: crypto.randomUUID(), date, type, category, amount, note, created };
+      if (payment) record.payment = payment;
+      records.push(record);
+    }
     save();
-    // 保留剛剛的類型、分類與日期，方便連續記帳
-    $("amount").value = ""; $("note").value = "";
-    render(); showToast("記帳完成");
+    // 保留剛剛的類型、分類、日期與付款方式，方便連續記帳；分期每次重填
+    $("amount").value = ""; $("note").value = ""; $("instCount").value = "1"; $("instStart").value = ""; instStartTouched = false;
+    updatePaymentUI(); render(); showToast(message);
     $("amount").focus();
   });
   $("rows").addEventListener("click", e => {
     const id = e.target.dataset.delete;
-    if (!id || !confirm("確定刪除這筆記帳資料？")) return;
-    records = records.filter(r => r.id !== id);
+    const target = id && records.find(r => r.id === id);
+    if (!target) return;
+    if (target.instId) {
+      // 分期：整筆一起刪
+      const group = records.filter(r => r.instId === target.instId);
+      const total = round2(group.reduce((sum, r) => sum + r.amount, 0));
+      if (!confirm(`這是刷卡分期的第 ${target.instNo}/${target.instTotal} 期。\n\n確定刪除整筆分期（共 ${group.length} 期、總額 ${money(total)}）？`)) return;
+      records = records.filter(r => r.instId !== target.instId);
+    } else {
+      if (!confirm("確定刪除這筆記帳資料？")) return;
+      records = records.filter(r => r.id !== id);
+    }
     save(); render(); showToast("資料已刪除");
   });
   function downloadCsv(filename, rows) {
@@ -498,7 +638,7 @@ window.Cloud = (() => {
   $("exportFiltered").addEventListener("click", () => {
     if (activeTab !== "detailTab") { downloadCsv(`個人記帳-${EXPORT_NAME[activeTab]}-${localDate}.csv`, statTables[activeTab]); return; }
     const list = filteredRecords();
-    const rows = [["日期","類型","分類","金額","備註"], ...list.map(r => [r.date, r.type === "income" ? "收入" : "支出", r.category, r.amount, r.note || ""])];
+    const rows = [["日期","類型","分類","金額","備註","付款方式","分期"], ...list.map(r => [r.date, r.type === "income" ? "收入" : "支出", r.category, r.amount, r.note || "", PAY_LABEL[r.payment] || "", instText(r)])];
     downloadCsv(`個人記帳-篩選明細-${localDate}.csv`, rows);
   });
   /* ===== 完整備份（Excel：彙整／明細／設定 三個分頁）與匯入還原 ===== */
@@ -521,14 +661,14 @@ window.Cloud = (() => {
       ["月份", "收入總額", "支出總額", "當月結餘"], ...months.map(([m, t]) => [m, t.income, t.expense, t.income - t.expense]), [],
       ["分類", "收入總額", "支出總額", "分類結餘"], ...cats.map(([c, t]) => [c, t.income, t.expense, t.income - t.expense])
     ];
-    const detail = [["日期", "類型", "分類", "金額", "備註", "編號", "建立時間"],
-      ...all.map(r => [r.date, TYPE_LABEL[r.type], r.category, r.amount, r.note || "", r.id, r.created || ""])];
+    const detail = [["日期", "類型", "分類", "金額", "備註", "編號", "建立時間", "付款方式", "分期", "分期編號"],
+      ...all.map(r => [r.date, TYPE_LABEL[r.type], r.category, r.amount, r.note || "", r.id, r.created || "", PAY_LABEL[r.payment] || "", instText(r), r.instId || ""])];
     const settingRows = [["設定項目", "數值"],
       ["收入分類", settings.categories.income.join("、")], ["支出分類", settings.categories.expense.join("、")]];
     const wb = XLSX.utils.book_new();
     const add = (rows, name, widths) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws["!cols"] = widths.map(wch => ({ wch })); XLSX.utils.book_append_sheet(wb, ws, name); };
     add(summary, "彙整", [18, 14, 14, 14]);
-    add(detail, "明細", [12, 6, 12, 10, 40, 38, 15]);
+    add(detail, "明細", [12, 6, 12, 10, 40, 38, 15, 10, 8, 38]);
     add(settingRows, "設定", [14, 60]);
     return wb;
   }
@@ -587,7 +727,10 @@ window.Cloud = (() => {
       let id = text("編號");
       if (!id || ids.has(id)) id = crypto.randomUUID();
       ids.add(id);
-      list.push({ id, date, type, category, amount, note: text("備註"), created: Number(get("建立時間")) || base + i });
+      const inst = text("分期").match(/^(\d+)\s*\/\s*(\d+)$/);
+      list.push({ id, date, type, category, amount, note: text("備註"), created: Number(get("建立時間")) || base + i,
+        payment: { "現金": "cash", "刷卡": "card" }[text("付款方式")] || "",
+        instNo: inst ? Number(inst[1]) : 0, instTotal: inst ? Number(inst[2]) : 0, instId: inst ? text("分期編號") : "" });
     });
     let newSettings = null;
     if (wb.Sheets["設定"]) {
@@ -663,7 +806,7 @@ window.Cloud = (() => {
     updateNoteRequirement();
   });
 
-  refreshCategories(); setMonthFilters($("month").value); render();
+  refreshCategories(); updatePaymentUI(); setMonthFilters($("month").value); render();
 })();
 </script>
 </body>
