@@ -41,6 +41,22 @@
     .card small{display:block;white-space:pre-line;line-height:1.5}
     td small{color:var(--muted);font-size:12px}td.wrap{white-space:normal;line-height:1.6;min-width:120px}
     h3.sub{font-size:14px;margin:18px 0 8px;color:var(--muted)}
+    /* ===== 目錄與收合 ===== */
+    .toc{position:sticky;top:0;z-index:20;background:var(--cream);border-bottom:1px solid var(--line);box-shadow:0 4px 14px #28332d0f}
+    .toc-inner{max-width:1120px;margin:0 auto;padding:8px 20px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .toc-inner::-webkit-scrollbar{display:none}
+    .toc button{flex:0 0 auto;background:#fff;color:var(--green);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:14px;font-weight:600}
+    .toc button.active{background:var(--green);color:#fff;border-color:var(--green)}
+    .toc button.toc-all{background:none;border-style:dashed;color:var(--muted);font-weight:500;margin-left:auto}
+    main>section{scroll-margin-top:64px}
+    .sec-head{display:flex;align-items:center;gap:10px;cursor:pointer;margin:-4px 0 14px;padding:4px 0;user-select:none;-webkit-tap-highlight-color:transparent}
+    .sec-head h2{margin:0!important;flex:0 0 auto;white-space:nowrap}
+    .sec-sum{flex:1 1 auto;min-width:0;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+    .panel:not(.collapsed) .sec-sum{visibility:hidden}
+    .sec-toggle{flex:0 0 auto;background:#edf1e9;color:var(--green);width:32px;height:32px;padding:0;border-radius:50%;display:grid;place-items:center}
+    .sec-toggle svg{transition:transform .2s}.panel.collapsed .sec-toggle svg{transform:rotate(-90deg)}
+    .panel.collapsed{padding-bottom:14px}.panel.collapsed .sec-head{margin-bottom:0}.panel.collapsed>.panel-body{display:none}
+    @media(max-width:480px){.toc-inner{padding:8px 12px}.toc button{padding:7px 11px}}
     .notice{background:#fff7e6;border:1px solid #f0dcae;border-radius:8px;padding:10px 12px;font-size:13px;color:#7a5a12;margin:0 0 12px}
     .pay-preview{margin:0;align-self:center;color:var(--muted);font-size:13px;line-height:1.5}
     @media(min-width:801px){.forms>button[type=submit]{grid-row:1;grid-column:6}}
@@ -89,6 +105,7 @@
 <body>
 <header><div><h1>個人記帳本</h1><p>每日收支・分類統計・信用卡卡費，一目了然</p></div>
   <div class="sync"><span class="sync-status" id="syncStatus" data-state="busy">連線中…</span><button type="button" id="logoutBtn" hidden>登出</button></div></header>
+<nav class="toc" aria-label="目錄"><div class="toc-inner" id="toc"></div></nav>
 <div class="loading" id="loadingScreen">資料載入中…</div>
 <div class="auth" id="authOverlay" hidden>
   <form class="auth-card" id="authForm">
@@ -101,13 +118,13 @@
 </div>
 <main>
   <div class="toolbar"><div><label for="month">月報月份</label><input class="month" id="month" type="month"></div><div class="backup-actions"><button type="button" class="secondary" id="exportBackup">下載完整備份</button><button type="button" class="secondary" id="importBackup">匯入備份</button><input type="file" id="importFile" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden></div></div>
-  <section class="cards">
+  <section class="cards" id="sec-top" data-nav="總覽">
     <div class="card"><span>本月收入</span><strong id="incomeTotal">$0</strong></div>
     <div class="card"><span>本月支出</span><strong id="expenseTotal">$0</strong></div>
     <div class="card"><span>本月結餘</span><strong id="balance">$0</strong></div>
     <div class="card"><span>累積總結餘</span><strong id="allTimeBalance">$0</strong><small id="allTimeNote">截至本月底的收入－支出</small></div>
   </section>
-  <section class="panel">
+  <section class="panel" id="sec-add" data-nav="記帳">
     <h2>新增收支</h2>
     <form class="forms" id="entryForm">
       <div><label for="date">日期</label><input id="date" type="date" required></div>
@@ -124,13 +141,13 @@
       <button type="submit">新增</button>
     </form>
   </section>
-  <section class="panel">
+  <section class="panel" id="sec-inst" data-nav="分期" data-fold="phone">
     <div class="panel-head"><h2>刷卡分期總覽</h2></div>
     <div class="inst-summary" id="instSummary"></div>
     <div class="table-wrap"><table><thead><tr><th>項目</th><th style="text-align:right">每期</th><th>已入帳</th><th style="text-align:right">剩餘期數</th><th style="text-align:right">剩餘金額</th></tr></thead><tbody id="instRows"></tbody></table></div>
     <p class="hint">以上方的「月報月份」為準：該月（含）以前的期數算已入帳，之後的算還沒繳。要取消某筆分期，到收支明細刪除其中任何一期，就會整筆一起刪。</p>
   </section>
-  <section class="panel">
+  <section class="panel" id="sec-fee" data-nav="卡費" data-fold="phone">
     <div class="panel-head"><h2>信用卡卡費</h2></div>
     <div class="inst-summary" id="feeSummary"></div>
     <h3 class="sub">各卡帳單</h3>
@@ -139,7 +156,7 @@
     <div class="table-wrap"><table><thead><tr><th>繳款月份・各卡金額（繳款日）</th><th style="text-align:right">合計</th></tr></thead><tbody id="feeMonthRows"></tbody></table></div>
     <p class="hint">以今天為準。「已結帳待繳」是已經出帳、還沒到繳款日的帳單；「累計中」是這一期到目前為止刷的金額。帳單依每張卡的結帳日切分：結帳日（含）以前刷的算這一期，之後刷的算下一期；過了繳款日就視為已繳。分期的每一期也照同樣的規則歸到各期帳單。消費仍然記在刷卡當天，上面的收支統計不受影響。</p>
   </section>
-  <section class="panel">
+  <section class="panel" id="sec-cards" data-nav="卡片" data-fold="always">
     <h2>信用卡管理</h2>
     <p class="notice" id="cardsNotice" hidden>試算表程式（Code.gs）還是舊版，卡片資料存不進試算表，所以先鎖住這裡。請把新的 Code.gs 貼到 Apps Script 並部署成「新版本」，完成後約半分鐘內會自動解鎖。</p>
     <form class="forms" id="cardForm">
@@ -151,7 +168,7 @@
     <div class="cat-group"><h3>我的卡片</h3><div class="chips" id="cardList"></div></div>
     <p class="hint">結帳日、繳款日在信用卡帳單上都查得到；月底結帳或月底繳款請填 31。要修改日期，用同一個名稱再新增一次即可。點 ✕ 移除卡片不會刪除已記錄的消費。也可以直接在 Google 試算表的「設定」分頁修改。</p>
   </section>
-  <section class="panel">
+  <section class="panel" id="sec-cats" data-nav="分類" data-fold="always">
     <h2>分類管理</h2>
     <form class="forms" id="categoryForm">
       <div><label for="newCategoryType">類型</label><select id="newCategoryType"><option value="expense">支出</option><option value="income">收入</option></select></div>
@@ -162,7 +179,7 @@
     <div class="cat-group"><h3>支出分類</h3><div class="chips" id="expenseCategoryList"></div></div>
     <p class="hint">點分類旁的 ✕ 可移除；已記錄的明細不受影響。灰色的「其他」為系統保留，不能移除。也可以直接在 Google 試算表的「設定」分頁修改（用頓號「、」分隔）。</p>
   </section>
-  <section class="panel">
+  <section class="panel" id="sec-data" data-nav="明細統計">
     <h2>記帳資料與統計</h2>
     <div class="filters">
       <div><label for="filterFrom">開始日期</label><input id="filterFrom" type="date"></div>
@@ -404,6 +421,74 @@ window.Cloud = (() => {
   const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   $("date").value = localDate;
   $("month").value = localDate.slice(0, 7);
+  /* ===== 目錄與收合：點目錄跳到該區塊，點區塊標題收合／展開；收合狀態記在這台裝置 ===== */
+  const FOLD_KEY = "personal-ledger-collapsed";
+  const panels = [...document.querySelectorAll("main > section.panel[data-nav]")];
+  const narrow = !!(window.matchMedia && window.matchMedia("(max-width: 800px)").matches);
+  let folded = null;
+  try { folded = JSON.parse(localStorage.getItem(FOLD_KEY)); } catch (e) { folded = null; }
+  if (!folded || typeof folded !== "object") {
+    // 第一次打開：設定類的區塊先收起來；手機上連分期、卡費也先收起來，只留記帳和明細
+    folded = {};
+    panels.forEach(sec => { folded[sec.id] = sec.dataset.fold === "always" || (narrow && sec.dataset.fold === "phone"); });
+  }
+  const CHEVRON = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  panels.forEach(sec => {
+    const first = sec.firstElementChild, title = first.tagName === "H2" ? first : first.querySelector("h2");
+    const head = document.createElement("div"), body = document.createElement("div");
+    head.className = "sec-head";
+    body.className = "panel-body"; body.id = sec.id + "-body";
+    head.innerHTML = `<span class="sec-sum" id="${sec.id.replace("sec-", "sum-")}"></span><button type="button" class="sec-toggle" aria-controls="${body.id}">${CHEVRON}</button>`;
+    head.prepend(title);
+    if (first !== title) first.remove();
+    while (sec.firstChild) body.appendChild(sec.firstChild);
+    sec.append(head, body);
+    head.addEventListener("click", () => setFold(sec, !sec.classList.contains("collapsed"), true));
+    setFold(sec, !!folded[sec.id], false);
+  });
+  function setFold(sec, collapse, remember) {
+    sec.classList.toggle("collapsed", collapse);
+    const btn = sec.querySelector(".sec-toggle");
+    btn.setAttribute("aria-expanded", String(!collapse));
+    btn.setAttribute("aria-label", (collapse ? "展開" : "收合") + sec.dataset.nav);
+    folded[sec.id] = collapse;
+    if (remember) { try { localStorage.setItem(FOLD_KEY, JSON.stringify(folded)); } catch (e) { /* 存不了就算了，只是下次要重新收合 */ } }
+    updateFoldAll();
+  }
+  const tocTargets = [$("sec-top"), ...panels];
+  $("toc").innerHTML = tocTargets.map(sec => `<button type="button" data-goto="${sec.id}">${sec.dataset.nav}</button>`).join("") + '<button type="button" class="toc-all" id="foldAll"></button>';
+  function updateFoldAll() {
+    const btn = $("foldAll");
+    if (btn) btn.textContent = panels.every(sec => sec.classList.contains("collapsed")) ? "全部展開" : "全部收合";
+  }
+  updateFoldAll();
+  $("toc").addEventListener("click", e => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.id === "foldAll") { const collapse = btn.textContent === "全部收合"; panels.forEach(sec => setFold(sec, collapse, true)); return; }
+    const sec = $(btn.dataset.goto);
+    if (sec.classList.contains("collapsed")) setFold(sec, false, true);   // 跳過去就順便展開
+    if (sec.scrollIntoView) sec.scrollIntoView({ behavior: "smooth", block: "start" });
+    markToc(sec.id);
+  });
+  function markToc(id) {
+    document.querySelectorAll("#toc [data-goto]").forEach(b => {
+      b.classList.toggle("active", b.dataset.goto === id);
+      if (b.dataset.goto === id && b.scrollIntoView && b.parentElement.scrollWidth > b.parentElement.clientWidth) b.scrollIntoView({ block: "nearest", inline: "nearest" });
+    });
+  }
+  // 捲動時，目錄跟著標出目前看到的區塊
+  if ("IntersectionObserver" in window) {
+    const seen = new Map();
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(en => seen.set(en.target.id, en.isIntersecting ? en.boundingClientRect.top : null));
+      const visible = tocTargets.filter(sec => seen.get(sec.id) !== null && seen.get(sec.id) !== undefined);
+      if (visible.length) markToc(visible[0].id);
+    }, { rootMargin: "-70px 0px -55% 0px" });
+    tocTargets.forEach(sec => observer.observe(sec));
+  }
+  // 收合時標題旁邊顯示的一句話摘要
+  const setSum = (id, text) => { const el = $(id); if (el) el.textContent = text; };
   await Cloud.ready();
   const load = (key, fallback) => {
     try { const value = localStorage.getItem(key); return value ? JSON.parse(value) : fallback; }
@@ -592,6 +677,7 @@ window.Cloud = (() => {
     const active = plans.filter(p => p.leftCount > 0);
     const leftAmount = round2(active.reduce((t, p) => t + p.leftAmount, 0)), leftCount = active.reduce((t, p) => t + p.leftCount, 0);
     const dueThisMonth = round2(plans.reduce((t, p) => t + p.thisMonth, 0));
+    setSum("sum-inst", active.length ? `${active.length} 筆未繳完・之後還要 ${money(leftAmount)}` : "沒有進行中的分期");
     $("instSummary").innerHTML = `<div>還沒繳完<strong>${active.length} 筆</strong></div><div>${month ? escapeHtml(month) : "本月"} 分期<strong>${money(dueThisMonth)}</strong></div><div>之後還要繳<strong>${money(leftAmount)}</strong></div>`;
     $("instRows").innerHTML = plans.length ? plans.map(p =>
       `<tr${p.leftCount ? "" : ' class="done"'}><td class="inst-item"><strong>${escapeHtml(p.category)}</strong>${p.note ? " " + escapeHtml(p.note) : ""}<br><small>${p.card ? escapeHtml(p.card) + "・" : ""}${p.start} ～ ${p.end}・總額 ${money(p.total)}</small></td>` +
@@ -623,6 +709,7 @@ window.Cloud = (() => {
     const unpaid = statements.filter(s => s.due >= now);                       // 過了繳款日就視為已繳
     const paidThisMonth = sum(dueIn(thisMonth).filter(s => s.due < now));
     const monthLabel = m => `${Number(m.slice(5, 7))} 月`;
+    setSum("sum-fee", statements.length ? `${monthLabel(thisMonth)}要繳 ${money(sum(dueIn(thisMonth)))}・${monthLabel(nextMonth)} ${money(sum(dueIn(nextMonth)))}` : "目前沒有刷卡紀錄");
     $("feeSummary").innerHTML =
       `<div>${monthLabel(thisMonth)}要繳<strong>${money(sum(dueIn(thisMonth)))}</strong>${paidThisMonth > 0 ? `其中 ${money(paidThisMonth)} 已過繳款日` : ""}</div>` +
       `<div>${monthLabel(nextMonth)}要繳<strong>${money(sum(dueIn(nextMonth)))}</strong>到目前為止</div>` +
@@ -675,6 +762,7 @@ window.Cloud = (() => {
     renderCardFees();
     updateFilterCategories();
     const visibleRecords = filteredRecords();
+    setSum("sum-data", `篩選結果 ${visibleRecords.length} 筆`);
     $("rows").innerHTML = visibleRecords.length ? visibleRecords.map(r => `<tr><td>${escapeHtml(r.date)}</td><td class="${r.type}">${r.type === "income" ? "收入" : "支出"}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(payText(r))}</td><td>${escapeHtml(r.note)}</td><td class="amount ${r.type}">${r.type === "income" ? "+" : "−"}${money(r.amount)}</td><td><button class="danger" data-delete="${escapeHtml(r.id)}" aria-label="刪除">刪除</button></td></tr>`).join("") : '<tr><td class="empty" colspan="7">沒有符合篩選條件的記帳資料</td></tr>';
     // ===== 分類統計：上方篩選範圍內，各分類的收入／支出／結餘 =====
     const zero = { income: 0, expense: 0 };
@@ -928,6 +1016,7 @@ window.Cloud = (() => {
   });
   /* ===== 分類管理 ===== */
   function renderCategoryManager() {
+    setSum("sum-cats", `支出 ${settings.categories.expense.length} 個・收入 ${settings.categories.income.length} 個`);
     ["income", "expense"].forEach(t => {
       $(t + "CategoryList").innerHTML = settings.categories[t].map(c => SYSTEM_CATEGORIES[t].includes(c)
         ? `<span class="chip system">${escapeHtml(c)}</span>`
@@ -960,6 +1049,7 @@ window.Cloud = (() => {
   /* ===== 信用卡管理 ===== */
   function renderCards() {
     const enabled = cardsEnabled();
+    setSum("sum-cards", settings.cards.length ? settings.cards.map(c => c.name).join("・") : "還沒有卡片");
     $("cardsNotice").hidden = enabled;
     [...$("cardForm").elements].forEach(el => { el.disabled = !enabled; });
     $("cardList").innerHTML = settings.cards.length ? settings.cards.map(c =>
