@@ -135,7 +135,7 @@
       <div class="pay-row" id="payRow">
         <div><label for="payment">付款方式</label><select id="payment"></select></div>
         <div id="instCountBox" class="hidden"><label for="instCount">分期期數（1＝不分期）</label><input id="instCount" type="number" min="1" max="60" step="1" value="1" inputmode="numeric"></div>
-        <div id="instStartBox" class="hidden"><label for="instStart">開始月份</label><input id="instStart" type="month"></div>
+        <div id="instStartBox" class="hidden"><label for="instStart">第一期繳款月份</label><input id="instStart" type="month"></div>
         <p class="pay-preview hidden" id="instPreview"></p>
       </div>
       <button type="submit">新增</button>
@@ -145,7 +145,7 @@
     <div class="panel-head"><h2>刷卡分期總覽</h2></div>
     <div class="inst-summary" id="instSummary"></div>
     <div class="table-wrap"><table><thead><tr><th>項目</th><th style="text-align:right">每期</th><th>已入帳</th><th style="text-align:right">剩餘期數</th><th style="text-align:right">剩餘金額</th></tr></thead><tbody id="instRows"></tbody></table></div>
-    <p class="hint">以上方的「月報月份」為準：該月（含）以前的期數算已入帳，之後的算還沒繳。要取消某筆分期，到收支明細刪除其中任何一期，就會整筆一起刪。</p>
+    <p class="hint">分期的每一期記在該期帳單的結帳日。以上方的「月報月份」為準：該月（含）以前的期數算已入帳，之後的算還沒繳。要取消某筆分期，到收支明細刪除其中任何一期，就會整筆一起刪。</p>
   </section>
   <section class="panel" id="sec-fee" data-nav="卡費" data-fold="phone">
     <div class="panel-head"><h2>信用卡卡費</h2></div>
@@ -540,7 +540,6 @@ window.Cloud = (() => {
   }
   const instText = r => r.instTotal > 1 ? `${r.instNo}/${r.instTotal}` : "";
   const addMonths = (ym, n) => { const [y, m] = ym.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${two(d.getMonth() + 1)}`; };
-  const dateInMonth = (ym, day) => { const [y, m] = ym.split("-").map(Number); return `${ym}-${two(Math.min(day, new Date(y, m, 0).getDate()))}`; };   // 31 號遇到小月就用月底
   // 均攤：整數金額以元為單位、有小數就以分為單位，除不盡的尾差放在第一期
   function splitAmount(total, count) {
     const scale = Number.isInteger(total) ? 1 : 100;
@@ -608,6 +607,20 @@ window.Cloud = (() => {
       + `<option value="card">${cards.length ? "刷卡（未指定卡片）" : "刷卡"}</option>`;
     select.value = [...select.options].some(o => o.value === current) ? current : "cash";
   }
+  // 分期：某個月要繳的那一期帳單在哪天結帳，那一期就記在那天（從繳款月份往回推）
+  function closeForDueMonth(dueMonth, rule) {
+    for (let back = 0; back <= 2; back++) {
+      const ym = addMonths(dueMonth, -back), y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7));
+      const close = ymd(y, m, Math.min(rule.closeDay, daysIn(y, m)));
+      if (statementOf(close, rule.closeDay, rule.dueDay).due.startsWith(dueMonth)) return close;
+    }
+    // 少數結帳日、繳款日都在月底的卡，某些月份剛好沒有帳單要繳：記在當月的結帳日，併到下一期
+    const y = Number(dueMonth.slice(0, 4)), m = Number(dueMonth.slice(5, 7));
+    return ymd(y, m, Math.min(rule.closeDay, daysIn(y, m)));
+  }
+  // 分期每一期記在哪一天：第一期在指定的繳款月份繳，之後每個月繳一期
+  const installmentDates = (payStart, count, rule) => Array.from({ length: count }, (_, i) => closeForDueMonth(addMonths(payStart, i), rule));
+  const payRule = pay => (pay.startsWith("card:") && cardOf(pay.slice(5))) || DEFAULT_RULE;
   let instStartTouched = false;
   function updatePaymentUI() {
     const pay = $("payment").value;
@@ -616,21 +629,23 @@ window.Cloud = (() => {
     $("payRow").classList.toggle("hidden", !isExpense);
     $("instCountBox").classList.toggle("hidden", !isCard);
     $("instStartBox").classList.toggle("hidden", !split);
-    if (split && (!instStartTouched || !$("instStart").value)) $("instStart").value = ($("date").value || localDate).slice(0, 7);
+    const date = $("date").value, rule = payRule(pay), card = isCard && pay.startsWith("card:") ? cardOf(pay.slice(5)) : null;
+    // 第一期繳款月份預設是「這筆消費原本會在哪個月繳」，也就是刷卡後的第一張帳單
+    if (split && (!instStartTouched || !$("instStart").value)) $("instStart").value = statementOf(date || localDate, rule.closeDay, rule.dueDay).due.slice(0, 7);
     const amount = Number($("amount").value), start = $("instStart").value;
     let text = "";
     if (split && count > 60) text = "分期期數最多 60 期";
     else if (split && amount > 0 && start) {
       const parts = splitAmount(amount, count);
       text = !parts ? "金額太小，沒辦法分成這麼多期"
-        : `每期 ${money(parts[1])}，共 ${count} 期（${start} ～ ${addMonths(start, count - 1)}）` + (parts[0] !== parts[1] ? `，首期 ${money(parts[0])}` : "");
+        : `每期 ${money(parts[1])}，共 ${count} 期${parts[0] !== parts[1] ? `（首期 ${money(parts[0])}）` : ""}，${start} ～ ${addMonths(start, count - 1)} 繳款；`
+          + `每期記在該期帳單的結帳日，第一期記在 ${md(installmentDates(start, 1, rule)[0])}` + (card ? "" : "（未指定卡片，以月底結帳計算）");
     }
-    // 刷卡：提示這筆會算在哪一期帳單、哪一天繳
-    const date = $("date").value, card = isCard && pay.startsWith("card:") ? cardOf(pay.slice(5)) : null;
-    if (card && date && (!split || start)) {
-      const bill = statementOf(split ? dateInMonth(start, Number(date.slice(8, 10))) : date, card.closeDay, card.dueDay);
-      text += (text ? "；" : "") + `${split ? "首期" : "這筆"}算在 ${md(bill.close)} 結帳的帳單，${md(bill.due)} 繳款`;
-    } else if (isCard && !card) text += (text ? "；" : "") + "未指定卡片，以「當月刷、下個月繳」計算";
+    // 刷卡不分期：提示這筆會算在哪一期帳單、哪一天繳
+    if (!split && card && date) {
+      const bill = statementOf(date, card.closeDay, card.dueDay);
+      text = `這筆算在 ${md(bill.close)} 結帳的帳單，${md(bill.due)} 繳款`;
+    } else if (!split && isCard && !card) text = "未指定卡片，以「當月刷、下個月繳」計算";
     $("instPreview").textContent = text;
     $("instPreview").classList.toggle("hidden", !text);
   }
@@ -837,15 +852,15 @@ window.Cloud = (() => {
     const count = payment === "card" ? Math.floor(Number($("instCount").value)) || 1 : 1;
     let message = "記帳完成";
     if (count >= 2) {
-      // 刷卡分期：從開始月份起，每個月各記一筆
+      // 刷卡分期：第一期在指定的月份繳，之後每月繳一期；每一期記在該期帳單的結帳日
       const start = $("instStart").value;
       if (count > 60) { alert("分期期數最多 60 期。"); return; }
-      if (!/^\d{4}-\d{2}$/.test(start)) { alert("請選擇分期的開始月份。"); return; }
+      if (!/^\d{4}-\d{2}$/.test(start)) { alert("請選擇第一期的繳款月份。"); return; }
       const parts = splitAmount(amount, count);
       if (!parts) { alert("金額太小，沒辦法分成這麼多期。"); return; }
-      const instId = crypto.randomUUID(), day = Number(date.slice(8, 10));
-      parts.forEach((part, i) => records.push({ id: crypto.randomUUID(), date: dateInMonth(addMonths(start, i), day), type, category, amount: part, note, created: created + i, payment, ...card, instNo: i + 1, instTotal: count, instId }));
-      message = `已分成 ${count} 期，${start} 起每月一筆`;
+      const instId = crypto.randomUUID(), dates = installmentDates(start, count, payRule(pay));
+      parts.forEach((part, i) => records.push({ id: crypto.randomUUID(), date: dates[i], type, category, amount: part, note, created: created + i, payment, ...card, instNo: i + 1, instTotal: count, instId }));
+      message = `已分成 ${count} 期，${start} 起每月繳一期`;
     } else {
       const record = { id: crypto.randomUUID(), date, type, category, amount, note, created };
       if (payment) Object.assign(record, { payment }, card);
